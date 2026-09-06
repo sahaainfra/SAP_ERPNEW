@@ -8,6 +8,8 @@ import {
   ACCOUNT_DETERMINATION, RELEASE_GROUPS, ROLES, USERS, CLOSING_STEPS_SEED,
   SOD_RULES, STATE_NAMES,
   SOURCE_LIST_SEED, QUOTA_SEED, RATE_CONTRACT_SEED, EQUIPMENT_SEED,
+  CONTRACTS_SEED, BOQ_SEED, RATE_LIBRARY_SEED, ASSET_SEED, GUARANTEE_SEED,
+  INSURANCE_SEED, DISPUTE_SEED, COMPLIANCE_SEED, MINWAGE_SEED,
 } from './config';
 
 /* ============================== utils ============================== */
@@ -136,6 +138,64 @@ export function checkPeriod(s: ERPState, companyId: string, area: 'FIN' | 'LOG',
     return { ok: true, msg: '', soft: true };
   }
   return { ok: true, msg: '' };
+}
+
+/* ============================== budget & availability control (PRJ) ============================== */
+
+export interface AvailabilityCheck {
+  wbs: string;
+  budget: number;
+  assigned: number;
+  availability: number;
+  usagePct: number;
+  action: 'PASS' | 'WARN' | 'WARN_NOTIFY' | 'BLOCK';
+  note: string;
+}
+
+const CONSUMPTION_ACCOUNTS = ['410100', '410200', '420100', '420200', '440200', '440300'];
+
+/** Assigned value = open requisitions + open POs (commitment) + actuals + reserved stock value. */
+export function assignedValue(s: ERPState, wbs: string): { openPR: number; openPO: number; actual: number; reserved: number; total: number } {
+  const openPR = s.docs
+    .filter((d) => d.type.startsWith('PR') && (d.status === 'PENDING_RELEASE' || d.status === 'PARTIALLY_RELEASED' || d.status === 'RELEASED'))
+    .reduce((t, d) => t + d.items.filter((i) => i.wbs === wbs).reduce((x, i) => x + i.qty * i.rate, 0), 0);
+  const openPO = s.docs
+    .filter((d) => d.type.startsWith('PO') && !['REJECTED', 'CANCELLED', 'REVERSED'].includes(d.status))
+    .reduce((t, d) => t + d.items.filter((i) => i.wbs === wbs).reduce((x, i) => x + Math.max(0, i.qty - i.received) * i.rate, 0), 0);
+  const actual = s.journals
+    .filter((j) => j.status === 'POSTED')
+    .reduce((t, j) => t + j.lines.filter((l) => l.wbs === wbs && CONSUMPTION_ACCOUNTS.includes(l.account)).reduce((x, l) => x + l.dr, 0), 0);
+  const reserved = s.reservations
+    .filter((r) => r.wbs === wbs && r.status === 'OPEN')
+    .reduce((t, r) => t + r.qty * (materialByCode(r.materialCode)?.price ?? 0), 0);
+  return { openPR: round2(openPR), openPO: round2(openPO), actual: round2(actual), reserved: round2(reserved), total: round2(openPR + openPO + actual + reserved) };
+}
+
+export function currentBudget(s: ERPState, wbs: string): number {
+  const b = s.budgets[wbs];
+  return b ? round2(b.org + b.sup - b.ret) : 0;
+}
+
+export function checkAvailability(s: ERPState, wbs: string, addAmount: number): AvailabilityCheck {
+  const budget = currentBudget(s, wbs);
+  const assigned = assignedValue(s, wbs).total;
+  const withNew = round2(assigned + addAmount);
+  const availability = round2(budget - withNew);
+  const usagePct = budget > 0 ? round2((withNew / budget) * 100) : 0;
+
+  if (budget === 0) {
+    return { wbs, budget, assigned, availability, usagePct, action: 'PASS', note: 'No budget element maintained — availability control not applicable.' };
+  }
+  if (usagePct > 105) {
+    return { wbs, budget, assigned, availability, usagePct, action: 'BLOCK', note: `Usage ${usagePct}% exceeds 105% — blocked until an approved budget supplement (BUD-SUP) raises the budget.` };
+  }
+  if (usagePct > 100) {
+    return { wbs, budget, assigned, availability, usagePct, action: 'WARN_NOTIFY', note: `Usage ${usagePct}% over 100% — warning + notification to Project Manager & Commercial.` };
+  }
+  if (usagePct > 90) {
+    return { wbs, budget, assigned, availability, usagePct, action: 'WARN', note: `Usage ${usagePct}% crossed 90% — warning to initiator.` };
+  }
+  return { wbs, budget, assigned, availability, usagePct, action: 'PASS', note: `Usage ${usagePct}% within tolerance.` };
 }
 
 /* ============================== account determination ============================== */
@@ -614,6 +674,18 @@ export function createPR(sIn: ERPState, args: { siteId: string; items: PRItemArg
     }
     total = round2(total + mat.price * it.qty);
     items.push({ line: i + 1, category: it.category, materialCode: mat.code, desc: mat.desc, qty: it.qty, uom: mat.baseUom, rate: mat.price, siteId: site.code, locId: 'UNR', wbs: it.wbs, cc: it.cc, received: 0, invoiced: 0, taxCode: '—', itc: mat.itc });
+  }
+
+  /* Budget availability control (PRJ) — enforced at submission for WBS-assigned lines */
+  if (args.submit) {
+    for (const it of items) {
+      if (!it.wbs) continue;
+      const av = checkAvailability(s, it.wbs, it.qty * it.rate);
+      if (av.action === 'BLOCK') {
+        pushAudit(s, userId, 'SECURITY', 'BUDGET_CONTROL', it.wbs, { reason: av.note });
+        return { s, ok: false, msg: `Budget control · ${it.wbs}: ${av.note}`, tone: 'bad' };
+      }
+    }
   }
 
   const id = uid();
@@ -1158,7 +1230,7 @@ export const openCommitment = (s: ERPState): number =>
 export function freshState(): ERPState {
   const today = todayISO();
   return {
-    v: 4,
+    v: 5,
     today,
     userId: 'USR-ADM',
     companyFilter: 'ALL',
@@ -1193,6 +1265,31 @@ export function freshState(): ERPState {
     tests: [],
     ncrs: [],
     exceptions: [],
+    /* Part 3 domain collections */
+    budgets: {},
+    contracts: clone(CONTRACTS_SEED),
+    boq: clone(BOQ_SEED),
+    measurements: [],
+    raBills: [],
+    suborders: [],
+    rateLibrary: clone(RATE_LIBRARY_SEED),
+    hindrances: [],
+    claims: [],
+    payProposals: [],
+    bankLines: [],
+    assets: clone(ASSET_SEED),
+    profitForecasts: [],
+    itc: [],
+    cess: [],
+    guarantees: clone(GUARANTEE_SEED),
+    insurances: clone(INSURANCE_SEED),
+    disputes: clone(DISPUTE_SEED),
+    compliance: clone(COMPLIANCE_SEED),
+    minWages: clone(MINWAGE_SEED),
+    closeout: {},
+    wbsVersions: {},
+    physicalProgress: {},
+    raRunHistory: [],
   };
 }
 

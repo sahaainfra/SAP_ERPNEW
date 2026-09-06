@@ -2,6 +2,8 @@ import type {
   Company, TaxRegistrationUnit, OperatingSite, ProjectDef, CostCentre, GLAccount,
   Material, Partner, InfoRecord, ConditionRecord, TaxCode, DocumentType, MovementType,
   RoleDef, UserDef, ClosingStep, ModuleCode, ItemCategory,
+  WbsNode, ContractMaster, BoqItem, RateAnalysis, BankGuarantee, InsurancePolicy,
+  Dispute, ComplianceTask, MinWage, AssetMaster,
 } from './types';
 
 /* ---------------- Enterprise structure ---------------- */
@@ -147,6 +149,21 @@ export const GL_ACCOUNTS: GLAccount[] = [
   { code: '440100', name: 'Price Difference', group: 'EXPENSE' },
   { code: '510100', name: 'Cost of Goods Sold — RMC', group: 'EXPENSE' },
   { code: '910100', name: 'Rounding Off', group: 'EXPENSE' },
+  /* ---- Part 3 commercial / financial accounts ---- */
+  { code: '150100', name: 'Unbilled Revenue (Contract Asset)', group: 'ASSET' },
+  { code: '220100', name: 'Billing in Advance (Contract Liability)', group: 'LIABILITY' },
+  { code: '220200', name: 'Provision — Onerous Contracts', group: 'LIABILITY' },
+  { code: '220300', name: 'Retention from Client', group: 'LIABILITY' },
+  { code: '220400', name: 'Mobilisation Advance Recoverable', group: 'LIABILITY' },
+  { code: '220500', name: 'Secured Advance — Materials at Site', group: 'LIABILITY' },
+  { code: '150200', name: 'Retention Receivable from Client', group: 'ASSET' },
+  { code: '310300', name: 'Revenue — Recognised (PoC)', group: 'REVENUE' },
+  { code: '440200', name: 'Cost of Construction (PoC)', group: 'EXPENSE' },
+  { code: '440300', name: 'Expected Loss — Onerous Contract', group: 'EXPENSE' },
+  { code: '420300', name: 'Depreciation Expense', group: 'EXPENSE' },
+  { code: '160100', name: 'Fixed Assets — Plant & Equipment', group: 'ASSET' },
+  { code: '160200', name: 'Accumulated Depreciation', group: 'ASSET' },
+  { code: '150300', name: 'GST Input Credit Receivable', group: 'ASSET' },
 ];
 
 /* ---------------- Master data ---------------- */
@@ -688,3 +705,176 @@ export const WELDERS = [
 ];
 
 export const NCR_SLA_DAYS: Record<string, number> = { MINOR: 14, MAJOR: 7, CRITICAL: 3 };
+
+/* ==================================================================== */
+/*  PART 3 — COMMERCIAL & FINANCIAL CONFIG (PRJ·CTR·BIL·SUB·FIN·CTL·CMP) */
+/* ==================================================================== */
+
+/* ---- PRJ: WBS tree (node types, status, billing/cost flags) ---- */
+export const WBS_TREE: WbsNode[] = [
+  /* NH-47 Package-3 */
+  { code: 'PRJ-NH47', name: 'NH-47 Package-3 — 4-Laning', projectCode: 'PRJ-NH47', nodeType: 'SUMMARY', planning: true, budgetElement: true, costObject: false, billingElement: false, profitCentre: 'PC-ROAD', status: 'RELEASED' },
+  { code: 'PRJ-NH47-E', name: 'Earthworks', projectCode: 'PRJ-NH47', parent: 'PRJ-NH47', nodeType: 'BOTH', planning: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M3', responsible: 'USR-DIR', status: 'RELEASED' },
+  { code: 'PRJ-NH47-S', name: 'Structures', projectCode: 'PRJ-NH47', parent: 'PRJ-NH47', nodeType: 'BOTH', planning: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M3', responsible: 'USR-DIR', status: 'RELEASED' },
+  { code: 'PRJ-NH47-P', name: 'Pavement', projectCode: 'PRJ-NH47', parent: 'PRJ-NH47', nodeType: 'BOTH', planning: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M2', responsible: 'USR-DIR', status: 'RELEASED' },
+  /* Ahmedabad Elevated Corridor */
+  { code: 'PRJ-AHD', name: 'Ahmedabad Elevated Corridor', projectCode: 'PRJ-AHD', nodeType: 'SUMMARY', planning: true, budgetElement: true, costObject: false, billingElement: false, profitCentre: 'PC-BLD', status: 'RELEASED' },
+  { code: 'PRJ-AHD-F', name: 'Foundations & Piles', projectCode: 'PRJ-AHD', parent: 'PRJ-AHD', nodeType: 'BOTH', planning: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-BLD', uom: 'M3', status: 'RELEASED' },
+  { code: 'PRJ-AHD-D', name: 'Deck & Girders', projectCode: 'PRJ-AHD', parent: 'PRJ-AHD', nodeType: 'BOTH', planning: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-BLD', uom: 'M3', status: 'TECH_COMPLETE' },
+];
+
+/* Budget tolerance profile (usage % -> action) */
+export const BUDGET_TOLERANCE = [
+  { pct: 90, action: 'WARN' as const, note: 'Warning to initiator' },
+  { pct: 100, action: 'WARN_NOTIFY' as const, note: 'Warning + notify PM & Commercial' },
+  { pct: 105, action: 'BLOCK' as const, note: 'Block — needs budget supplement' },
+];
+
+export const COST_CODES = [
+  { code: 'CC-MAT', name: 'Material' }, { code: 'CC-LAB', name: 'Labour' },
+  { code: 'CC-PLT', name: 'Plant' }, { code: 'CC-SUB', name: 'Subcontract' },
+  { code: 'CC-SOH', name: 'Site Overhead' }, { code: 'CC-HOH', name: 'Head-office Overhead' },
+  { code: 'CC-FIN', name: 'Finance' }, { code: 'CC-STA', name: 'Statutory' },
+];
+
+/* Settlement rules (from cost object -> to) */
+export const SETTLEMENT_RULES = [
+  { from: 'Maintenance order', to: 'Equipment cost centre', then: 'Consuming WBS', driver: 'Actual hours' },
+  { from: 'Production order (RMC)', to: 'Cost of production', then: 'Consuming WBS / sales', driver: 'Output qty' },
+  { from: 'WBS element', to: 'Profitability segment', then: '—', driver: 'Direct' },
+  { from: 'Site overhead WBS', to: 'Work WBS', then: '—', driver: 'Direct cost %' },
+];
+
+/* ---- CTR: contracts & BOQ ---- */
+export const CONTRACTS_SEED: ContractMaster[] = [
+  {
+    id: 'CN-001', number: 'VUL/CN/25-26/001', clientId: 'BP-NHAI', projectCode: 'PRJ-NH47', type: 'ITEM_RATE',
+    loaRef: 'NHAI/PIU-P/LOA/2025/114', agreementDate: '2025-04-15',
+    originalValue: 8_40_00_000, revisedValue: 8_65_00_000,
+    completionDate: '2027-04-14', revisedCompletion: '2027-07-13', eotGrantedDays: 90,
+    retentionPct: 5, retentionCeilingPct: 5, securityDepositPct: 2.5,
+    mobilisationAdvancePct: 10, advanceInterestPct: 12, recoveryStartPct: 30, recoveryRatePct: 8,
+    priceAdjustment: true, ldRatePctPerWeek: 0.5, ldCeilingPct: 10, defectLiabilityMonths: 12,
+    claimNoticeDays: 28, eotNoticeDays: 28, disputeNoticeDays: 28, status: 'ACTIVE',
+  },
+  {
+    id: 'CN-002', number: 'VUL/CN/25-26/002', clientId: 'BP-NHAI', projectCode: 'PRJ-AHD', type: 'EPC',
+    loaRef: 'NHAI/AHD/LOA/2025/041', agreementDate: '2025-06-01',
+    originalValue: 12_60_00_000, revisedValue: 12_60_00_000,
+    completionDate: '2027-11-30', eotGrantedDays: 0,
+    retentionPct: 5, retentionCeilingPct: 5, securityDepositPct: 3,
+    mobilisationAdvancePct: 10, advanceInterestPct: 12, recoveryStartPct: 25, recoveryRatePct: 10,
+    priceAdjustment: false, ldRatePctPerWeek: 0.5, ldCeilingPct: 10, defectLiabilityMonths: 24,
+    claimNoticeDays: 14, eotNoticeDays: 14, disputeNoticeDays: 14, status: 'ACTIVE',
+  },
+];
+
+export const BOQ_SEED: BoqItem[] = [
+  { id: 'BQ-01', contractId: 'CN-001', itemCode: '2.1', desc: 'Embankment construction (incl. compaction)', spec: 'MoRTH 5th Rev · Cl 300', unit: 'M3', tenderQty: 120000, tenderRate: 185, revisedQty: 120000, executedCum: 52000, previouslyBilled: 48000, deviationLimitPct: 15, wbs: 'PRJ-NH47-E', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-04-15', approved: true },
+  { id: 'BQ-02', contractId: 'CN-001', itemCode: '4.3', desc: 'RCC M25 in structures', spec: 'IS 456 · MoRTH Cl 1700', unit: 'M3', tenderQty: 9500, tenderRate: 7850, revisedQty: 9500, executedCum: 4100, previouslyBilled: 3900, deviationLimitPct: 10, wbs: 'PRJ-NH47-S', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-04-15', approved: true },
+  { id: 'BQ-03', contractId: 'CN-001', itemCode: '4.4', desc: 'Reinforcement steel Fe500D', spec: 'IS 1786', unit: 'MT', tenderQty: 780, tenderRate: 74500, revisedQty: 780, executedCum: 320, previouslyBilled: 300, deviationLimitPct: 10, wbs: 'PRJ-NH47-S', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-04-15', approved: true },
+  { id: 'BQ-04', contractId: 'CN-001', itemCode: '6.1', desc: 'Dense bituminous concrete', spec: 'MoRTH Cl 500', unit: 'MT', tenderQty: 28000, tenderRate: 4650, revisedQty: 28000, executedCum: 0, previouslyBilled: 0, deviationLimitPct: 15, wbs: 'PRJ-NH47-P', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-04-15', approved: true },
+  { id: 'BQ-05', contractId: 'CN-001', itemCode: 'E-01', desc: 'Extra: under-drain (approved)', spec: 'Drawing IFD-201', unit: 'RM', tenderQty: 0, tenderRate: 940, revisedQty: 1200, executedCum: 350, previouslyBilled: 300, deviationLimitPct: 100, wbs: 'PRJ-NH47-E', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-09-01', approved: true },
+  { id: 'BQ-06', contractId: 'CN-001', itemCode: 'E-02', desc: 'Extra: additional traffic signage (unapproved)', spec: 'Drawing IFD-214', unit: 'NOS', tenderQty: 0, tenderRate: 3200, revisedQty: 40, executedCum: 12, previouslyBilled: 0, deviationLimitPct: 100, wbs: 'PRJ-NH47-E', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-11-01', approved: false, provisional: true },
+  { id: 'BQ-07', contractId: 'CN-002', itemCode: '3.1', desc: 'Bored cast-in-situ piles 1200 dia', spec: 'IS 2911', unit: 'RM', tenderQty: 14500, tenderRate: 18500, revisedQty: 14500, executedCum: 6200, previouslyBilled: 6000, deviationLimitPct: 10, wbs: 'PRJ-AHD-F', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-06-01', approved: true },
+  { id: 'BQ-08', contractId: 'CN-002', itemCode: '5.2', desc: 'PSC box girder (cast & launch)', spec: 'IRC 112', unit: 'M3', tenderQty: 6800, tenderRate: 15200, revisedQty: 6800, executedCum: 2800, previouslyBilled: 2800, deviationLimitPct: 10, wbs: 'PRJ-AHD-D', costCode: 'CC-MAT', rateVersion: 1, rateEffective: '2025-06-01', approved: true },
+];
+
+/* ---- CTR: rate analysis library (nested) ---- */
+export const RATE_LIBRARY_SEED: RateAnalysis[] = [
+  {
+    id: 'RA-M25', code: 'RA-M25', desc: 'RCC M25 (excl. reinforcement) — sub-analysis', unit: 'M3',
+    components: [
+      { kind: 'MATERIAL', desc: 'Cement OPC 53', qty: 7.6, rate: 412, unit: 'BAG', wastagePct: 2 },
+      { kind: 'MATERIAL', desc: 'Aggregate 20mm', qty: 0.85, rate: 1360, unit: 'M3', wastagePct: 2 },
+      { kind: 'MATERIAL', desc: 'Sand', qty: 0.45, rate: 1120, unit: 'M3', wastagePct: 2 },
+      { kind: 'LABOUR', desc: 'Mason + helpers (output 1.25 cum/gang-day)', qty: 0.8, rate: 1450, unit: 'DAY' },
+      { kind: 'PLANT', desc: 'Mixer + vibrator', qty: 0.35, rate: 900, unit: 'HR' },
+    ],
+    siteOverheadPct: 6, hoOverheadPct: 3, profitPct: 8, version: 2, effective: '2025-04-15', preparer: 'USR-BUY', approver: 'USR-HOD',
+  },
+  {
+    id: 'RA-RCC', code: 'RA-RCC-4.3', desc: 'Item 4.3 — RCC M25 in structures (uses M25 sub-analysis)', unit: 'M3',
+    components: [
+      { kind: 'SUB_ANALYSIS', desc: 'RCC M25 base (nested)', qty: 1, rate: 0, unit: 'M3', subAnalysisId: 'RA-M25' },
+      { kind: 'LABOUR', desc: 'Formwork + finishing', qty: 1, rate: 1150, unit: 'M3' },
+      { kind: 'TRANSPORT', desc: 'Lead (12 km slab) + lift', qty: 1, rate: 240, unit: 'M3' },
+    ],
+    siteOverheadPct: 6, hoOverheadPct: 3, profitPct: 8, version: 1, effective: '2025-04-15', preparer: 'USR-BUY', approver: 'USR-HOD',
+  },
+];
+
+/* ---- BIL: escalation index master ---- */
+export const ESCALATION_COMPONENTS = [
+  { code: 'LAB', name: 'Labour', weight: 0.30, base: 100, current: 108.5 },
+  { code: 'CEM', name: 'Cement', weight: 0.15, base: 100, current: 106.2 },
+  { code: 'STL', name: 'Steel', weight: 0.20, base: 100, current: 112.4 },
+  { code: 'BIT', name: 'Bitumen', weight: 0.10, base: 100, current: 104.0 },
+  { code: 'POL', name: 'POL (fuel)', weight: 0.05, base: 100, current: 109.8 },
+  { code: 'PM', name: 'Plant & machinery', weight: 0.05, base: 100, current: 103.6 },
+  { code: 'OM', name: 'Other materials', weight: 0.15, base: 100, current: 105.1 },
+];
+export const ESCALATION_NON_ADJUSTABLE = 0.0; /* sum of weights + this = 1.0 */
+
+/* ---- FIN: depreciation areas (company law vs tax) ---- */
+export const DEPR_AREAS = [
+  { code: 'AREA-CO', name: 'Company Law', method: 'SLM' },
+  { code: 'AREA-TAX', name: 'Income Tax', method: 'WDV' },
+];
+
+export const ASSET_SEED: AssetMaster[] = [
+  { id: 'AS-01', code: 'FA-1001', desc: 'Batching Plant 60 m³/hr', cls: 'Plant & Machinery', acqDate: '2024-04-10', acqValue: 48_00_000, usefulLifeYears: 10, location: 'ST-RMC', projectCode: 'PRJ-NH47', depCoLaw: 9_60_000, depTax: 12_60_000, coLawRatePct: 10, taxRatePct: 15 },
+  { id: 'AS-02', code: 'FA-1002', desc: 'Tower Crane 8T', cls: 'Plant & Machinery', acqDate: '2025-01-20', acqValue: 62_00_000, usefulLifeYears: 12, location: 'ST-AHD', projectCode: 'PRJ-AHD', depCoLaw: 5_16_667, depTax: 7_75_000, coLawRatePct: 8.33, taxRatePct: 12.5 },
+];
+
+/* ---- CMP: compliance registers ---- */
+export const GUARANTEE_SEED: BankGuarantee[] = [
+  { id: 'BG-01', number: 'HDFC/BG/2025/8841', bank: 'HDFC Bank', type: 'PERFORMANCE', beneficiary: 'NHAI — PIU Pune', contractId: 'CN-001', amount: 42_00_000, marginBlocked: 4_20_000, issueDate: '2025-04-20', expiryDate: '2026-01-25', claimPeriodEnd: '2026-04-20', autoRenew: true, status: 'LIVE' },
+  { id: 'BG-02', number: 'SBI/BG/2025/1204', bank: 'SBI', type: 'MOBILISATION', beneficiary: 'NHAI — PIU Pune', contractId: 'CN-001', amount: 84_00_000, marginBlocked: 8_40_000, issueDate: '2025-05-05', expiryDate: '2026-05-04', claimPeriodEnd: '2026-08-04', autoRenew: false, status: 'LIVE' },
+  { id: 'BG-03', number: 'ICICI/BG/2025/0771', bank: 'ICICI Bank', type: 'EARNEST_MONEY', beneficiary: 'NHAI — PIU Ahmedabad', contractId: 'CN-002', amount: 12_60_000, marginBlocked: 1_26_000, issueDate: '2025-03-10', expiryDate: '2025-12-31', claimPeriodEnd: '2026-03-10', autoRenew: false, status: 'LIVE' },
+];
+
+export const INSURANCE_SEED: InsurancePolicy[] = [
+  { id: 'INS-01', kind: 'Contractors All Risk', policyNo: 'CAR/2025/4410', insurer: 'New India Assurance', sumInsured: 84_00_00_000, projectCode: 'PRJ-NH47', validTo: '2027-04-14', status: 'LIVE' },
+  { id: 'INS-02', kind: 'Workmen Compensation', policyNo: 'WC/2025/1182', insurer: 'Oriental Insurance', sumInsured: 2_00_00_000, projectCode: 'PRJ-NH47', validTo: '2026-01-15', status: 'LIVE' },
+  { id: 'INS-03', kind: 'Plant & Machinery', policyNo: 'PM/2025/0039', insurer: 'ICICI Lombard', sumInsured: 11_00_00_000, projectCode: 'PRJ-AHD', validTo: '2025-12-20', status: 'LIVE' },
+];
+
+export const DISPUTE_SEED: Dispute[] = [
+  { id: 'DSP-01', ref: 'ARB/NH47/2025/04', forum: 'Arbitration (3-member tribunal)', oppositeParty: 'NHAI', subject: 'Non-payment of RA-07 certified dues + interest', contractId: 'CN-001', amountClaimed: 3_85_00_000, filingDate: '2025-08-12', limitationEnd: '2028-08-11', status: 'HEARING', contingentProvision: 0 },
+  { id: 'DSP-02', ref: 'FC/AHD/2025/02', forum: 'Dispute Facilitation Council', oppositeParty: 'NHAI', subject: 'Rejection of extra item E-02 rate', contractId: 'CN-002', amountClaimed: 64_00_000, filingDate: '2025-11-02', limitationEnd: '2028-11-01', status: 'FILED', contingentProvision: 12_00_000 },
+];
+
+export const COMPLIANCE_SEED: ComplianceTask[] = [
+  { id: 'CMP-01', obligation: 'GST Return GSTR-3B (Dec)', dueDate: '2026-01-20', owner: 'ROLE-FIN', state: 'MH', status: 'GREEN', evidence: false },
+  { id: 'CMP-02', obligation: 'PF monthly return (Dec)', dueDate: '2026-01-15', owner: 'ROLE-FIN', state: 'MH', projectCode: 'PRJ-NH47', status: 'AMBER', evidence: false },
+  { id: 'CMP-03', obligation: 'Labour licence renewal', dueDate: '2026-01-05', owner: 'ROLE-ADM', state: 'GJ', projectCode: 'PRJ-AHD', status: 'RED', evidence: false },
+  { id: 'CMP-04', obligation: 'BOCW cess — Q3 challan', dueDate: '2026-01-31', owner: 'ROLE-FIN', state: 'MH', projectCode: 'PRJ-NH47', status: 'GREEN', evidence: false },
+  { id: 'CMP-05', obligation: 'Factory licence (batching plant)', dueDate: '2026-06-30', owner: 'ROLE-ADM', state: 'MH', projectCode: 'PRJ-NH47', status: 'GREEN', evidence: true },
+];
+
+export const MINWAGE_SEED: MinWage[] = [
+  { id: 'MW-01', state: 'MH', zone: 'Zone I', skill: 'Unskilled', dailyRate: 620, effective: '2026-01-01', notificationRef: 'MH/LAB/2025/NOTIF-118' },
+  { id: 'MW-02', state: 'MH', zone: 'Zone I', skill: 'Skilled', dailyRate: 745, effective: '2026-01-01', notificationRef: 'MH/LAB/2025/NOTIF-118' },
+  { id: 'MW-03', state: 'GJ', zone: 'Zone A', skill: 'Unskilled', dailyRate: 560, effective: '2025-10-01', notificationRef: 'GJ/LAB/2025/NOTIF-072' },
+];
+
+/* Statutory deduction rates for billing (effective-dated) */
+export const STATUTORY_RATES = {
+  labourCessPct: 1,        /* BOCW */
+  tdsPct194C: 2,           /* income tax withholding */
+  gstTdsPct: 2,            /* GST u/s 51 (notified deductor) */
+  securedAdvanceRatePct: 75,
+};
+
+/* Closeout pre-closure checklist template */
+export const CLOSEOUT_TEMPLATE: { task: string; mandatory: boolean }[] = [
+  { task: 'All variations approved', mandatory: true },
+  { task: 'All extra items rated', mandatory: true },
+  { task: 'All recoveries settled', mandatory: true },
+  { task: 'Material at site reconciled', mandatory: true },
+  { task: 'Client-issued material reconciled', mandatory: true },
+  { task: 'All notices issued', mandatory: true },
+  { task: 'As-built drawings handed over', mandatory: false },
+  { task: 'Lessons-learned fed to rate library', mandatory: false },
+];

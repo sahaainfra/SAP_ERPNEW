@@ -7,6 +7,12 @@ import {
 import { postEquipmentLog, postInternalHire } from './eam';
 import { createInspectionLot, recordTest } from './qms';
 import { createGateEntry, weighIn, reserveStock, issueReturnable, startCount, submitCount, createRfq, submitQuotation } from './logistics';
+import { logHindrance, raiseClaim } from './ctr';
+import { addMeasurement, certifyMeasurement, computeRaBill, advanceBill } from './bil';
+import { createSuborder, issueFreeIssueMaterial } from './sub';
+import { itcReconcile, computeCess } from './cmp';
+import { runResultsAnalysis } from './prj';
+import { recordProfitForecast } from './ctl';
 
 /* module-level master snapshots so a demo reset is faithful */
 const MATERIALS_ORIG = JSON.parse(JSON.stringify(MATERIALS)) as typeof MATERIALS;
@@ -127,6 +133,7 @@ export function buildSeedState(): ERPState {
   Object.assign(st, r.s);
 
   seedLogistics(st);
+  seedCommercial(st);
 
   st.today = todayISO();
   return st;
@@ -198,4 +205,85 @@ function seedLogistics(st: ERPState): void {
     Object.assign(st, submitQuotation(st, rfq1, { vendorId: 'BP-SAI', rate: 1180, discPct: 0, freightPerUnit: 310, leadDays: 4, paymentDays: 45, validUntil: daysAgoISO(-10), at: '' }, 'USR-BUY').s);
     Object.assign(st, submitQuotation(st, rfq1, { vendorId: 'BP-SUNR', rate: 1350, discPct: 5, freightPerUnit: 120, leadDays: 3, paymentDays: 15, validUntil: daysAgoISO(-10), at: '' }, 'USR-BUY').s);
   }
+}
+
+/* ── Part 3 opening : budgets, contracts, measurement/billing, subcontract, compliance ── */
+function seedCommercial(st: ERPState): void {
+  let r: { s: ERPState; ok: boolean; docId?: string };
+
+  /* Budgets (original, as if approved BUD-ORG) */
+  st.budgets = {
+    'PRJ-NH47': { org: 7_20_00_000, sup: 0, ret: 0 },
+    'PRJ-NH47-E': { org: 2_60_00_000, sup: 12_00_000, ret: 0 },
+    'PRJ-NH47-S': { org: 3_00_00_000, sup: 0, ret: 0 },
+    'PRJ-NH47-P': { org: 1_60_00_000, sup: 0, ret: 0 },
+    'PRJ-AHD': { org: 10_80_00_000, sup: 0, ret: 0 },
+    'PRJ-AHD-F': { org: 6_40_00_000, sup: 0, ret: 0 },
+    'PRJ-AHD-D': { org: 4_40_00_000, sup: 0, ret: 0 },
+  };
+
+  /* Physical progress per WBS (distinct from financial progress) */
+  st.physicalProgress = {
+    'PRJ-NH47-E': 43, 'PRJ-NH47-S': 38, 'PRJ-NH47-P': 4,
+    'PRJ-AHD-F': 42, 'PRJ-AHD-D': 41,
+  };
+
+  /* A hindrance event approaching its notice deadline + one EOT claim */
+  st.today = daysAgoISO(6);
+  r = logHindrance(st, { contractId: 'CN-001', type: 'LAND_ROW', desc: 'ROW not handed over at km 12+400 — structure front idle', eventDate: daysAgoISO(6), frontsAffected: 'PRJ-NH47-S pier P5', impactDays: 14, noticeServed: false, linkedActivity: 'Pile cap P5' }, 'USR-DIR');
+  Object.assign(st, r.s);
+  r = logHindrance(st, { contractId: 'CN-001', type: 'CLIENT_DRAWING', desc: 'IFC drawing for deck girder delayed', eventDate: daysAgoISO(40), endDate: daysAgoISO(20), frontsAffected: 'PRJ-NH47-S', impactDays: 20, noticeServed: true, noticeDate: daysAgoISO(38), noticeRef: 'VUL/N/2025/118', linkedActivity: 'Girder casting' }, 'USR-DIR');
+  Object.assign(st, r.s);
+  r = raiseClaim(st, { contractId: 'CN-001', clause: 'GCC 12.4 (EOT)', eventDate: daysAgoISO(40), noticeDate: daysAgoISO(38), desc: 'Prolongation due to delayed IFC drawings', heads: [{ head: 'Prolongation cost', amount: 38_00_000 }, { head: 'Idle plant', amount: 9_00_000 }], timeImpactDays: 20 }, 'USR-DIR');
+  Object.assign(st, r.s);
+
+  /* A certified measurement + RA bill for CN-001 (billed value) */
+  st.today = daysAgoISO(12);
+  r = addMeasurement(st, { contractId: 'CN-001', boqItemId: 'BQ-02', location: 'Pier P4 cap', drawingNo: 'ST-104', drawingRev: 'C', drawingStatus: 'IFC', nos: 4, length: 12.5, breadth: 6.2, depth: 2.0, formula: 'L×B×D', period: '2025-12' }, 'USR-DIR');
+  Object.assign(st, r.s);
+  const meas1 = st.measurements[0]?.id;
+  if (meas1) { Object.assign(st, certifyMeasurement(st, meas1, 'USR-FIN').s); }
+
+  st.today = daysAgoISO(10);
+  r = computeRaBill(st, { contractId: 'CN-001', period: '2025-12', materialAtSiteValue: 32_00_000, advanceOutstanding: 68_00_000, cumulativeProgressPct: 41, prevRetentionCum: 8_00_000, eotPending: true }, 'USR-FIN');
+  Object.assign(st, r.s);
+  const ra1 = st.raBills[0]?.id;
+  if (ra1) {
+    Object.assign(st, advanceBill(st, ra1, 'CERTIFIED', 1_92_00_000, 'USR-FIN').s);
+    Object.assign(st, advanceBill(st, ra1, 'PAID', undefined, 'USR-FIN').s);
+    const paidBill = st.raBills.find((b) => b.id === ra1);
+    if (paidBill) paidBill.paid = paidBill.netPayable;
+  }
+
+  /* A subcontract with back-to-back lines */
+  st.today = daysAgoISO(20);
+  r = createSuborder(st, { subconId: 'BP-PRAK', projectCode: 'PRJ-NH47', wbs: 'PRJ-NH47-S', clientBoqIds: ['BQ-02', 'BQ-03'], subRates: { 'BQ-02': 6900, 'BQ-03': 68000 }, ceilingValue: 2_40_00_000, labourLicenceValidTo: daysAgoISO(-120), pfCompliant: true, insuranceValidTo: daysAgoISO(-200), materialRecoveryRate: { 'MAT-STL16': 62000, 'MAT-C53': 445 } }, 'USR-BUY');
+  Object.assign(st, r.s);
+  const so1 = st.suborders[0]?.id;
+  if (so1) {
+    r = issueFreeIssueMaterial(st, so1, { materialCode: 'MAT-C53', qty: 200, siteId: 'ST-NH47' }, 'USR-STR');
+    Object.assign(st, r.s);
+  }
+
+  /* Subcontractor with EXPIRED labour licence — for the payment-block demo */
+  r = createSuborder(st, { subconId: 'BP-SAI', projectCode: 'PRJ-AHD', wbs: 'PRJ-AHD-F', clientBoqIds: ['BQ-07'], subRates: { 'BQ-07': 16200 }, ceilingValue: 3_00_00_000, labourLicenceValidTo: daysAgoISO(30), pfCompliant: false, insuranceValidTo: daysAgoISO(-90), materialRecoveryRate: {} }, 'USR-BUY');
+  Object.assign(st, r.s);
+
+  /* ITC reconciliation + cess + profit forecasts */
+  st.today = daysAgoISO(3);
+  r = itcReconcile(st, 'USR-FIN');
+  Object.assign(st, r.s);
+  r = computeCess(st, 'PRJ-NH47', 3_80_00_000, 'USR-FIN');
+  Object.assign(st, r.s);
+  r = recordProfitForecast(st, { key: 'PRJ-NH47', dimension: 'PROJECT', revenue: 8_65_00_000, cost: 7_92_00_000 }, 'USR-CFO');
+  Object.assign(st, r.s);
+  r = recordProfitForecast(st, { key: 'PRJ-NH47', dimension: 'PROJECT', revenue: 8_65_00_000, cost: 8_05_00_000 }, 'USR-CFO');
+  Object.assign(st, r.s); /* margin sliding down — trend visible */
+
+  /* A results-analysis run (unbilled revenue) */
+  st.today = daysAgoISO(2);
+  r = runResultsAnalysis(st, { projectCode: 'PRJ-NH47', period: '2025-12', actualCost: 3_05_00_000, estimatedTotalCost: 7_92_00_000, revisedContractValue: 8_65_00_000, billedToDate: 1_92_00_000, physicalPct: 41, basis: 'COST' }, 'USR-FIN');
+  Object.assign(st, r.s);
+
+  st.today = todayISO();
 }

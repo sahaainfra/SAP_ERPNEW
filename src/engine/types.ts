@@ -416,6 +416,31 @@ export interface ERPState {
   tests: TestResult[];
   ncrs: Ncr[];
   exceptions: Exc[];
+  /* ---- Part 3 : commercial & financial domain objects ---- */
+  budgets: Record<string, BudgetLine>;        // wbsCode -> budget
+  contracts: ContractMaster[];
+  boq: BoqItem[];
+  measurements: MeasurementEntry[];
+  raBills: RaBill[];
+  suborders: SubcontractOrder[];
+  rateLibrary: RateAnalysis[];
+  hindrances: HindranceEvent[];
+  claims: Claim[];
+  payProposals: PaymentProposal[];
+  bankLines: BankStatementLine[];
+  assets: AssetMaster[];
+  profitForecasts: ProfitForecast[];
+  itc: ItcEntry[];
+  cess: CessEntry[];
+  guarantees: BankGuarantee[];
+  insurances: InsurancePolicy[];
+  disputes: Dispute[];
+  compliance: ComplianceTask[];
+  minWages: MinWage[];
+  closeout: Record<string, CloseoutItem[]>;   // projectCode -> checklist
+  wbsVersions: Record<string, WbsVersion[]>;  // projectCode -> versions
+  physicalProgress: Record<string, number>;   // wbsCode -> %
+  raRunHistory: RaRunRecord[];                // results-analysis postings
 }
 
 /* =========================== Part 2 — PRC =========================== */
@@ -684,3 +709,399 @@ export interface Res {
   tone: 'ok' | 'bad' | 'warn' | 'info';
   docId?: string;
 }
+
+/* =========================== Part 3 — PRJ =========================== */
+
+export type WbsNodeType = 'SUMMARY' | 'ACCOUNT_ASSIGNMENT' | 'BILLING' | 'BOTH';
+export type WbsStatus = 'CREATED' | 'RELEASED' | 'TECH_COMPLETE' | 'CLOSED';
+
+export interface WbsNode {
+  code: string;
+  name: string;
+  projectCode: string;
+  parent?: string;
+  nodeType: WbsNodeType;
+  planning: boolean;
+  budgetElement: boolean;
+  costObject: boolean;
+  billingElement: boolean;
+  responsible?: string;
+  costCentre?: string;
+  profitCentre?: string;
+  uom?: string;
+  status: WbsStatus;
+}
+
+export interface BudgetLine { org: number; sup: number; ret: number; }
+
+export interface WbsVersion {
+  version: number;
+  at: string;
+  by: string;
+  reason: string;
+  mapping: { from: string; to: string }[];  // old node -> new node
+}
+
+export interface RaRunRecord {
+  id: string;
+  projectCode: string;
+  period: string;          // YYYY-MM
+  pocCost: number;         // % cost basis
+  pocPhysical: number;     // % physical basis
+  calculatedRevenue: number;
+  billedToDate: number;
+  unbilled: number;        // contract asset
+  billingInAdvance: number;// contract liability
+  expectedLoss: number;    // onerous provision
+  journalNumber?: string;
+  reversedBy?: string;
+  at: string;
+  by: string;
+}
+
+/* =========================== Part 3 — CTR =========================== */
+
+export type ContractType = 'ITEM_RATE' | 'PCT_RATE' | 'LUMP_SUM' | 'EPC' | 'COST_PLUS' | 'ANNUITY';
+
+export interface ContractMaster {
+  id: string;
+  number: string;
+  clientId: string;
+  projectCode: string;
+  type: ContractType;
+  loaRef: string;
+  agreementDate: string;
+  originalValue: number;
+  revisedValue: number;
+  completionDate: string;
+  revisedCompletion?: string;
+  eotGrantedDays: number;
+  retentionPct: number;
+  retentionCeilingPct: number;
+  securityDepositPct: number;
+  mobilisationAdvancePct: number;
+  advanceInterestPct: number;
+  recoveryStartPct: number;   // begin recovery when cumulative progress >= this %
+  recoveryRatePct: number;
+  priceAdjustment: boolean;
+  ldRatePctPerWeek: number;
+  ldCeilingPct: number;
+  defectLiabilityMonths: number;
+  claimNoticeDays: number;
+  eotNoticeDays: number;
+  disputeNoticeDays: number;
+  status: 'ACTIVE' | 'PRACTICAL_COMPLETION' | 'CLOSED';
+}
+
+export interface BoqItem {
+  id: string;
+  contractId: string;
+  itemCode: string;
+  desc: string;
+  spec: string;
+  unit: string;
+  tenderQty: number;
+  tenderRate: number;
+  revisedQty: number;
+  executedCum: number;        // cumulative measured
+  previouslyBilled: number;
+  deviationLimitPct: number;  // permitted deviation
+  wbs: string;
+  costCode: string;
+  rateVersion: number;
+  rateEffective: string;
+  approved: boolean;          // extra item approved?
+  provisional?: boolean;
+}
+
+export interface RateComponent {
+  kind: 'MATERIAL' | 'LABOUR' | 'PLANT' | 'TRANSPORT' | 'ROYALTY' | 'OVERHEAD' | 'SUB_ANALYSIS';
+  desc: string;
+  qty: number;
+  rate: number;
+  wastagePct?: number;
+  unit: string;
+  subAnalysisId?: string;     // nested sub-analysis
+}
+
+export interface RateAnalysis {
+  id: string;
+  code: string;
+  desc: string;
+  unit: string;
+  components: RateComponent[];
+  siteOverheadPct: number;
+  hoOverheadPct: number;
+  profitPct: number;
+  version: number;
+  effective: string;
+  locked?: boolean;
+  lockedReason?: string;
+  preparer: string;
+  approver?: string;
+}
+
+export type HindranceType =
+  | 'CLIENT_DRAWING' | 'LAND_ROW' | 'UTILITY_SHIFTING' | 'STATUTORY_APPROVAL'
+  | 'CLIENT_MATERIAL' | 'RAIN' | 'LAW_ORDER' | 'LABOUR_UNREST' | 'DESIGN_CHANGE';
+
+export interface HindranceEvent {
+  id: string;
+  contractId: string;
+  type: HindranceType;
+  desc: string;
+  eventDate: string;
+  endDate?: string;
+  frontsAffected: string;
+  impactDays: number;
+  noticeServed: boolean;
+  noticeDate?: string;
+  noticeRef?: string;
+  linkedActivity?: string;
+  feedsEotId?: string;
+}
+
+export interface Claim {
+  id: string;
+  number: string;
+  contractId: string;
+  clause: string;
+  eventDate: string;
+  noticeDate: string;
+  noticeTimely: boolean;
+  desc: string;
+  heads: { head: string; amount: number }[];
+  timeImpactDays: number;
+  status: 'NOTICE' | 'PARTICULARS' | 'SUBMITTED' | 'NEGOTIATED' | 'AWARDED' | 'REJECTED';
+  awarded: number;
+  hindranceId?: string;
+}
+
+/* =========================== Part 3 — BIL =========================== */
+
+export interface MeasurementEntry {
+  id: string;
+  contractId: string;
+  boqItemId: string;
+  mbNo: string;
+  period: string;
+  location: string;
+  drawingNo: string;
+  drawingRev: string;
+  drawingStatus: 'IFC' | 'SUPERSEDED' | 'DRAFT';
+  nos: number;
+  length: number;
+  breadth: number;
+  depth: number;
+  formula: string;
+  qty: number;
+  isDeduction: boolean;
+  isDeviation: boolean;       // correction of an earlier certified entry
+  correctsId?: string;
+  certifiedIn?: string;       // raBill id once certified
+  measuredBy: string;
+  checkedBy: string;
+  status: 'DRAFT' | 'CERTIFIED';
+  at: string;
+}
+
+export interface RaBillStep { label: string; value: number; detail?: string; flagged?: boolean; }
+
+export interface RaBill {
+  id: string;
+  number: string;
+  contractId: string;
+  period: string;
+  grossToDate: number;
+  grossPrev: number;
+  grossThisBill: number;
+  escalation: number;
+  escalationDetail: { component: string; weight: number; indexBase: number; indexCur: number; amount: number }[];
+  securedAdvance: number;
+  recoveries: { head: string; amount: number; note?: string }[];
+  statutory: { head: string; amount: number }[];
+  taxableValue: number;
+  gst: number;
+  netPayable: number;
+  submitted: number;
+  certified: number;
+  paid: number;
+  status: 'DRAFT' | 'QS_CERTIFIED' | 'PM_APPROVED' | 'COMMERCIAL' | 'SUBMITTED' | 'UNDER_CERTIFICATION' | 'CERTIFIED' | 'INVOICED' | 'PAID' | 'CLOSED' | 'RETURNED' | 'DISPUTED';
+  certShortfalls: { reason: string; amount: number }[];
+  steps: RaBillStep[];
+  at: string;
+}
+
+/* =========================== Part 3 — SUB =========================== */
+
+export interface SubcontractOrder {
+  id: string;
+  number: string;
+  subconId: string;
+  projectCode: string;
+  wbs: string;
+  lines: { clientBoqId: string; desc: string; qty: number; rate: number; subRate: number }[];
+  ceilingValue: number;
+  retentionPct: number;
+  advancePct: number;
+  labourLicenceValidTo: string;
+  pfCompliant: boolean;
+  insuranceValidTo: string;
+  status: 'ACTIVE' | 'CLOSED';
+  materialRecoveryRate: Record<string, number>; // materialCode -> recovery rate
+}
+
+export interface SubBillRecovery { head: string; amount: number; }
+
+/* =========================== Part 3 — FIN =========================== */
+
+export interface VendorInvoiceCheck { label: string; ok: boolean; note: string; }
+
+export interface PaymentProposalLine {
+  invoiceId: string;
+  vendorId: string;
+  dueDate: string;
+  amount: number;
+  priority: 'STATUTORY' | 'MSME' | 'CRITICAL' | 'NORMAL';
+  msmeDays?: number;
+  msmeInterest?: number;
+  blocked?: boolean;
+  blockReason?: string;
+}
+
+export interface PaymentProposal {
+  id: string;
+  number: string;
+  lines: PaymentProposalLine[];
+  total: number;
+  status: 'PROPOSED' | 'CHECKED' | 'RELEASED' | 'FILE_EXPORTED';
+  maker: string;
+  checker?: string;
+  bankFileTotal?: number;
+  at: string;
+}
+
+export interface BankStatementLine {
+  id: string;
+  dateISO: string;
+  ref: string;
+  desc: string;
+  amount: number;       // +ve credit, -ve debit
+  matchedInvoiceId?: string;
+  matchedBy?: 'AUTO' | 'MANUAL';
+  status: 'MATCHED' | 'UNMATCHED';
+  ageDays: number;
+}
+
+export interface AssetMaster {
+  id: string;
+  code: string;
+  desc: string;
+  cls: string;
+  acqDate: string;
+  acqValue: number;
+  usefulLifeYears: number;
+  location: string;
+  projectCode?: string;
+  equipmentCode?: string;
+  depCoLaw: number;     // accumulated — company law
+  depTax: number;       // accumulated — tax law
+  coLawRatePct: number;
+  taxRatePct: number;
+}
+
+/* =========================== Part 3 — CTL =========================== */
+
+export interface ProfitForecast {
+  id: string;
+  key: string;            // project / client / BU
+  dimension: 'PROJECT' | 'CLIENT' | 'BU';
+  period: string;
+  revenue: number;
+  cost: number;
+  margin: number;
+  version: number;        // retain prior forecasts for trend
+  at: string;
+}
+
+/* =========================== Part 3 — CMP =========================== */
+
+export interface ItcEntry {
+  id: string;
+  vendorId: string;
+  invoiceNo: string;
+  dateISO: string;
+  taxable: number;
+  tax: number;
+  eligible: 'ELIGIBLE' | 'BLOCKED_IMMOVABLE' | 'INELIGIBLE';
+  inStatement: boolean;
+  status: 'MATCHED' | 'NOT_IN_STATEMENT' | 'VALUE_MISMATCH' | 'REVERSE_CHARGE';
+}
+
+export interface CessEntry { id: string; projectCode: string; base: number; ratePct: number; amount: number; challan?: string; at: string; }
+
+export type BgType = 'EARNEST_MONEY' | 'PERFORMANCE' | 'ADVANCE' | 'RETENTION' | 'MOBILISATION';
+
+export interface BankGuarantee {
+  id: string;
+  number: string;
+  bank: string;
+  type: BgType;
+  beneficiary: string;
+  contractId?: string;
+  amount: number;
+  marginBlocked: number;
+  issueDate: string;
+  expiryDate: string;
+  claimPeriodEnd: string;
+  autoRenew: boolean;
+  status: 'LIVE' | 'RELEASED' | 'INVOKED' | 'EXPIRED';
+}
+
+export interface InsurancePolicy {
+  id: string;
+  kind: string;
+  policyNo: string;
+  insurer: string;
+  sumInsured: number;
+  projectCode?: string;
+  validTo: string;
+  status: 'LIVE' | 'LAPSED' | 'CLAIMED';
+}
+
+export interface Dispute {
+  id: string;
+  ref: string;
+  forum: string;
+  oppositeParty: string;
+  subject: string;
+  contractId?: string;
+  amountClaimed: number;
+  filingDate: string;
+  limitationEnd: string;
+  status: 'FILED' | 'HEARING' | 'AWARDED' | 'EXECUTION' | 'CLOSED';
+  contingentProvision: number;
+}
+
+export interface ComplianceTask {
+  id: string;
+  obligation: string;
+  dueDate: string;
+  owner: string;
+  state: string;
+  projectCode?: string;
+  status: 'GREEN' | 'AMBER' | 'RED' | 'DONE';
+  evidence?: boolean;
+}
+
+export interface MinWage {
+  id: string;
+  state: string;
+  zone: string;
+  skill: string;
+  dailyRate: number;
+  effective: string;
+  notificationRef: string;
+}
+
+export interface CloseoutItem { id: string; task: string; done: boolean; mandatory: boolean; }
