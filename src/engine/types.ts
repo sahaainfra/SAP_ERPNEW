@@ -1442,3 +1442,130 @@ export interface RaPosting {
   reversedBy?: string;
   at: string;
 }
+
+/* ==================== Part 5 — Stores & Inventory ==================== */
+
+export type StockLoc =
+  | 'UNR' | 'QH' | 'BLK' | 'RET' | 'SUB' | 'CLI' | 'TRN' | 'SCR';
+
+export interface StorageBin {
+  id: string;
+  siteId: string;
+  locId: StockLoc;
+  code: string;              // row/rack/level e.g. A-01-3
+  capacity: number;
+  uom: string;
+  materialRestriction?: string[];  // material codes allowed (empty = any)
+  currentQty: number;
+  currentMaterial?: string;
+}
+
+export interface PutAway {
+  id: string;
+  siteId: string;
+  materialCode: string;
+  qty: number;
+  fromLocId: StockLoc;
+  binId: string;
+  status: 'PENDING' | 'DONE';
+  gateNo?: string;
+  at: string;
+  by?: string;
+  doneAt?: string;
+}
+
+export interface RejectionNote {
+  id: string;
+  number: string;
+  siteId: string;
+  materialCode: string;
+  qty: number;
+  vendorId: string;
+  reason: string;
+  route: 'RETURN' | 'DEBIT_NOTE';
+  status: 'OPEN' | 'CLOSED';
+  at: string;
+  closedAt?: string;
+}
+
+export interface ValuationAdjustment {
+  id: string;
+  number: string;
+  siteId: string;
+  materialCode: string;
+  receiptDocId: string;
+  oldAvg: number;
+  newAvg: number;
+  delta: number;            // value posted to price difference
+  reason: string;
+  at: string;
+}
+
+export interface RecLine {
+  materialCode: string;
+  siteId: string;
+  locId: StockLoc;
+  ledgerValue: number;      // from stock rows
+  glValue: number;          // from stock GL control account
+  break: number;
+}
+
+export interface StockRecRun {
+  id: string;
+  at: string;
+  companyId: string;
+  lines: RecLine[];
+  totalLedger: number;
+  totalGl: number;
+  totalBreak: number;
+  status: 'CLEAN' | 'BREAK';
+}
+
+export interface MatReconLine {
+  materialCode: string;
+  diameter?: string;        // steel by diameter
+  theoretical: number;      // from BOQ execution x coefficient x (1+wastage)
+  actual: number;           // opening + receipts - closing - returns - transfers - with subcon
+  variance: number;
+  variancePct: number;
+  flag: 'GREEN' | 'AMBER' | 'RED';
+  issueSlips: { docNo: string; qty: number; date: string; wbs: string }[];
+  measurements: { boqItem: string; qty: number }[];
+}
+
+export interface MatReconDoc {
+  id: string;
+  number: string;
+  projectCode: string;
+  period: string;           // YYYY-MM
+  lines: MatReconLine[];
+  status: 'DRAFT' | 'APPROVED';
+  redExplanation?: string;  // PM explanation required to clear RED
+  redExplainedBy?: string;
+  at: string;
+}
+
+export interface TareFlag {
+  id: string;
+  ticketNo: string;
+  vehicleNo: string;
+  thisTare: number;
+  histTare: number;
+  deviationPct: number;
+  at: string;
+}
+
+export interface CountFreeze {
+  siteId: string;
+  locId: StockLoc;
+  countId: string;
+  at: string;
+}
+
+export interface CountVarianceApproval {
+  countId: string;
+  band: 'STOREKEEPER' | 'STORE_MANAGER' | 'CONTROLLER';
+  approvedBy: string;
+  reason: string;
+  at: string;
+}
