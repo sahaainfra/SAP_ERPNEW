@@ -116,6 +116,7 @@ export const COST_CENTRES: CostCentre[] = [
 export const GL_ACCOUNTS: GLAccount[] = [
   { code: '110100', name: 'Stock — Materials', group: 'ASSET', control: 'STOCK' },
   { code: '110150', name: 'Stock — RMC Semi-Finished', group: 'ASSET', control: 'STOCK' },
+  { code: '110160', name: 'Stock — Client-Issued Material (split valuation)', group: 'ASSET', control: 'STOCK' },
   { code: '110200', name: 'Stock in Transit', group: 'ASSET', control: 'STOCK' },
   { code: '110300', name: 'GR/IR Clearing', group: 'LIABILITY', control: 'GRIR' },
   { code: '110400', name: 'Stock with Subcontractor', group: 'ASSET', control: 'STOCK' },
@@ -530,3 +531,160 @@ export const STOCK_TYPE_NAMES: Record<string, string> = {
 };
 
 export const STATE_NAMES: Record<string, string> = { MH: 'Maharashtra', GJ: 'Gujarat', DL: 'Delhi', KA: 'Karnataka' };
+
+/* ==================================================================== */
+/*  PART 2 — LOGISTICS CONFIGURATION (PRC · INV · EAM · QMS)             */
+/* ==================================================================== */
+
+import type {
+  SourceListItem, QuotaArrangement, RateContract, Equipment,
+} from './types';
+
+/* ---- PRC.1 Sourcing master data ---- */
+
+/* Materials whose group is source-controlled need a source-list vendor */
+export const SOURCE_CONTROLLED_GROUPS = ['MG-AGG', 'MG-STL'];
+
+export const SOURCE_LIST_SEED: SourceListItem[] = [
+  { materialCode: 'MAT-C53', siteId: 'ST-NH47', vendorId: 'BP-SHREE', validFrom: '2025-04-01', validTo: '2026-03-31', fixed: true },
+  { materialCode: 'MAT-STL16', siteId: 'ST-NH47', vendorId: 'BP-TATA', validFrom: '2025-04-01', validTo: '2026-03-31' },
+  { materialCode: 'MAT-AGG20', siteId: 'ST-NH47', vendorId: 'BP-KRISH', validFrom: '2025-04-01', validTo: '2026-03-31' },
+  { materialCode: 'MAT-SND', siteId: 'ST-NH47', vendorId: 'BP-KRISH', validFrom: '2025-04-01', validTo: '2026-03-31' },
+  { materialCode: 'MAT-AGG20', siteId: 'ST-AHD', vendorId: 'BP-SAI', validFrom: '2025-04-01', validTo: '2026-03-31' },
+  { materialCode: 'MAT-HSD', siteId: 'ST-NH47', vendorId: 'BP-IOCL', validFrom: '2025-04-01', validTo: '2026-03-31', fixed: true },
+  { materialCode: 'MAT-EXHR', siteId: 'ST-NH47', vendorId: 'BP-SAI', validFrom: '2025-04-01', validTo: '2026-03-31' },
+];
+
+export const QUOTA_SEED: QuotaArrangement[] = [
+  {
+    materialCode: 'MAT-C53', siteId: 'ST-NH47',
+    allocations: [
+      { vendorId: 'BP-SHREE', pct: 55 },
+      { vendorId: 'BP-TATA', pct: 30 },
+      { vendorId: 'BP-SUNR', pct: 15 },
+    ],
+    allocated: { 'BP-SHREE': 9500, 'BP-TATA': 4100, 'BP-SUNR': 900 },
+  },
+];
+
+export const RATE_CONTRACT_SEED: RateContract[] = [
+  { id: 'RC-1001', number: 'VUL-RC/25-26/00001', vendorId: 'BP-SHREE', materialCode: 'MAT-C53', siteId: 'ST-NH47', rate: 405, capQty: 20000, releasedQty: 9500, validFrom: '2025-04-01', validTo: '2026-03-31', status: 'ACTIVE' },
+  { id: 'RC-1002', number: 'VUL-RC/25-26/00002', vendorId: 'BP-KRISH', materialCode: 'MAT-AGG20', siteId: 'ST-NH47', rate: 1285, capQty: 8000, releasedQty: 7920, validFrom: '2025-04-01', validTo: '2026-03-31', status: 'ACTIVE' },
+];
+
+/* ---- PRC.2 Requirement planning (reorder points) ---- */
+export const REORDER_POINTS: Record<string, { siteId: string; reorder: number; max: number }> = {
+  'MAT-C53|ST-NH47': { siteId: 'ST-NH47', reorder: 1200, max: 6000 },
+  'MAT-STL16|ST-NH47': { siteId: 'ST-NH47', reorder: 40, max: 220 },
+  'MAT-HSD|ST-NH47': { siteId: 'ST-NH47', reorder: 2500, max: 12000 },
+  'MAT-WBR|ST-WSH': { siteId: 'ST-WSH', reorder: 120, max: 600 },
+};
+
+/* Material coefficients from the Costing view (per unit of BOQ work) */
+export const BOQ_COEFFICIENTS: Record<string, { mat: string; coeff: number; uom: string }> = {
+  'PRJ-NH47-S|CONC': { mat: 'MAT-C53', coeff: 7.6, uom: 'BAG' },   /* cement bags / m³ concrete */
+  'PRJ-NH47-S|CONC_STL': { mat: 'MAT-STL16', coeff: 0.085, uom: 'MT' }, /* t steel / m³ */
+  'PRJ-NH47-P|AGG': { mat: 'MAT-AGG20', coeff: 0.9, uom: 'M3' },
+};
+
+/* ---- PRC.6 Minor minerals / royalty ---- */
+export const MINERAL_GROUP = 'MG-AGG';
+export const ROYALTY_BORNE = ['CONTRACTOR', 'VENDOR'];
+
+/* ---- EAM fleet ---- */
+
+export const OPERATORS = [
+  { id: 'OP-1', name: 'G. Pawar', licenceValidTo: '2026-08-15' },
+  { id: 'OP-2', name: 'S. Yadav', licenceValidTo: '2026-02-20' },
+  { id: 'OP-3', name: 'A. Khan', licenceValidTo: '2025-11-30' }, /* expired licence */
+];
+
+export const EQUIPMENT_SEED: Equipment[] = [
+  {
+    code: 'EQ-EX201', desc: 'Excavator 20T — PC200', category: 'Earthmoving', make: 'Komatsu', model: 'PC200-8M2',
+    serial: 'KMT-88231', regNo: 'MH-12-EX-4471', ownership: 'OWNED', acqValue: 78_00_000, siteId: 'ST-NH47',
+    wbs: 'PRJ-NH47-E', operatorId: 'OP-1', operatorLicValidTo: '2026-08-15', status: 'RUNNING', hourMeter: 6420,
+    fuelType: 'HSD', fuelNormLph: 18, internalRate: 2450,
+    docs: [
+      { kind: 'Insurance', no: 'INS-4471-25', validTo: '2026-06-30' },
+      { kind: 'Fitness', no: 'FIT-4471', validTo: '2026-04-10' },
+      { kind: 'Pollution Cert', no: 'PUC-4471', validTo: '2026-03-05' },
+    ],
+    pmEveryHrs: 250, lastPmHm: 6250,
+  },
+  {
+    code: 'EQ-WA301', desc: 'Wheel Loader — WA320', category: 'Earthmoving', make: 'Komatsu', model: 'WA320-5',
+    serial: 'KMT-71102', regNo: 'MH-12-WL-2208', ownership: 'OWNED', acqValue: 64_00_000, siteId: 'ST-NH47',
+    wbs: 'PRJ-NH47-E', operatorId: 'OP-2', operatorLicValidTo: '2026-02-20', status: 'AVAILABLE', hourMeter: 3980,
+    fuelType: 'HSD', fuelNormLph: 14, internalRate: 1900,
+    docs: [
+      { kind: 'Insurance', no: 'INS-2208-25', validTo: '2026-09-15' },
+      { kind: 'Fitness', no: 'FIT-2208', validTo: '2026-05-22' },
+    ],
+    pmEveryHrs: 250, lastPmHm: 3800,
+  },
+  {
+    code: 'EQ-CR401', desc: 'Transit Mixer 6 m³ (hired)', category: 'Concreting', make: 'Schwing', model: 'STM-6',
+    serial: 'SW-55120', regNo: 'GJ-05-TM-8834', ownership: 'HIRED', acqValue: 0, siteId: 'ST-NH47',
+    wbs: 'PRJ-NH47-S', operatorId: 'OP-1', operatorLicValidTo: '2026-08-15', status: 'RUNNING', hourMeter: 1240,
+    fuelType: 'HSD', fuelNormLph: 9, internalRate: 1150,
+    docs: [
+      { kind: 'Insurance', no: 'INS-8834-25', validTo: '2026-07-01' },
+      { kind: 'Permit', no: 'PRM-8834', validTo: '2026-03-31' },
+    ],
+    pmEveryHrs: 200, lastPmHm: 1100,
+  },
+  {
+    code: 'EQ-DG500', desc: 'DG Set 500 kVA (functional location)', category: 'Power', make: 'Cummins', model: 'C500D5',
+    serial: 'CMN-30987', regNo: '—', ownership: 'OWNED', acqValue: 42_00_000, siteId: 'ST-NH47',
+    operatorId: 'OP-2', operatorLicValidTo: '2026-02-20', status: 'IDLE', hourMeter: 8810,
+    fuelType: 'HSD', fuelNormLph: 62, internalRate: 820,
+    docs: [{ kind: 'Insurance', no: 'INS-DG500', validTo: '2026-10-01' }],
+    pmEveryHrs: 300, lastPmHm: 8700,
+  },
+  {
+    code: 'EQ-EX209', desc: 'Excavator 20T — backup (insurance lapsed)', category: 'Earthmoving', make: 'Hitachi', model: 'ZX200',
+    serial: 'HTC-11930', regNo: 'MH-12-EX-9917', ownership: 'OWNED', acqValue: 71_00_000, siteId: 'ST-NH47',
+    operatorId: 'OP-3', operatorLicValidTo: '2025-11-30', status: 'AVAILABLE', hourMeter: 5110,
+    fuelType: 'HSD', fuelNormLph: 18, internalRate: 2350,
+    docs: [
+      { kind: 'Insurance', no: 'INS-9917-24', validTo: '2025-10-31' }, /* EXPIRED */
+      { kind: 'Fitness', no: 'FIT-9917', validTo: '2026-01-15' },
+    ],
+    pmEveryHrs: 250, lastPmHm: 5000,
+  },
+];
+
+export const FUEL_TOLERANCE_FACTOR = 1.15; /* consumption above norm × factor → exception */
+
+/* ---- QMS quality planning ---- */
+
+export const QUALITY_CONFIG: Record<string, { insp: boolean; type: string; test: 'CUBE' | 'SOIL' | 'AGG' | 'BITUMEN' | 'STEEL' | null }> = {
+  'MAT-C53': { insp: true, type: 'IL-GRN', test: null },
+  'MAT-STL16': { insp: true, type: 'IL-GRN', test: 'STEEL' },
+  'MAT-AGG20': { insp: true, type: 'IL-GRN', test: 'AGG' },
+  'MAT-SND': { insp: true, type: 'IL-GRN', test: 'AGG' },
+  'MAT-RMC25': { insp: true, type: 'IL-PRD', test: 'CUBE' },
+  'MAT-HSD': { insp: false, type: '—', test: null },
+  'MAT-WBR': { insp: false, type: '—', test: null },
+  'MAT-PPE': { insp: false, type: '—', test: null },
+};
+
+export const ITP_SEED = [
+  { activity: 'PCC / RCC Concreting', spec: 'IS 456 · M25', characteristics: ['Slump 75–100 mm', 'Cube 28-day ≥ 25 MPa', 'Compaction factor ≥ 0.95'], frequency: 'Per pour / per 50 m³', points: 'Hold: before pour · Witness: cube casting' },
+  { activity: 'Rebar fixing', spec: 'IS 1786 · Fe500D', characteristics: ['Cover 25–50 mm', 'Lap length per design', 'Bend radius OK'], frequency: 'Per member', points: 'Review: BBS · Witness: pre-pour inspection' },
+  { activity: 'Bituminous layer', spec: 'MoRTH 5th Rev · BC', characteristics: ['Thickness ±6 mm', 'Compaction ≥ 98%', 'Bitumen content 4–4.6%'], frequency: 'Per 500 m', points: 'Hold: before overlay' },
+];
+
+export const TEST_EQUIPMENT = [
+  { id: 'TE-CTM', name: 'Compression Testing Machine', validTo: '2026-05-20' },
+  { id: 'TE-SLUMP', name: 'Slump Cone Set', validTo: '2026-09-01' },
+  { id: 'TE-UT', name: 'Ultrasonic NDT Probe', validTo: '2025-12-15' }, /* expired calibration */
+];
+
+export const WELDERS = [
+  { id: 'WD-1', name: 'R. More', qualValidTo: '2026-07-10' },
+  { id: 'WD-2', name: 'B. Singh', qualValidTo: '2025-09-30' }, /* lapsed qualification */
+];
+
+export const NCR_SLA_DAYS: Record<string, number> = { MINOR: 14, MAJOR: 7, CRITICAL: 3 };

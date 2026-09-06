@@ -36,7 +36,7 @@ export function Cockpit() {
 
   const kpi = useMemo(() => {
     const stock = stockValueTotal({ ...state, stock: state.stock.filter((r) => inScope(SITES.find((s) => s.code === r.siteId)?.companyId ?? '')) });
-    const gl = ['110100', '110150', '110200', '110400'].reduce((t, a) => {
+    const gl = ['110100', '110150', '110160', '110200', '110400'].reduce((t, a) => {
       const lines = state.journals.filter((j) => j.status === 'POSTED' && inScope(j.companyId))
         .flatMap((j) => j.lines.filter((l) => l.account === a));
       return t + lines.reduce((x, l) => x + l.dr - l.cr, 0);

@@ -310,6 +310,9 @@ export interface StockRow {
   stockType: StockType;
   qty: number;
   value: number;
+  vtype?: string;   // split valuation type: PUR (purchased) | CI (client-issued) | IMP (imported)
+  special?: string; // special stock indicator O/SC/CI/RT/PR
+  batch?: string;
 }
 
 export interface FlowLink { from: string; to: string; }
@@ -396,6 +399,282 @@ export interface ERPState {
   closing: ClosingStep[];
   freeze: Record<string, string>; // partnerId -> frozen until ISO
   authFailCount: number;
+  /* ---- Part 2 : logistics domain objects ---- */
+  sources: SourceListItem[];
+  quotas: QuotaArrangement[];
+  rateContracts: RateContract[];
+  rfqs: Rfq[];
+  gateEntries: GateEntry[];
+  weighTickets: WeighTicket[];
+  reservations: Reservation[];
+  returnables: ReturnableIssue[];
+  counts: PhysicalCount[];
+  equipment: Equipment[];
+  eqLogs: EquipmentLog[];
+  maintOrders: MaintOrder[];
+  inspLots: InspectionLot[];
+  tests: TestResult[];
+  ncrs: Ncr[];
+  exceptions: Exc[];
+}
+
+/* =========================== Part 2 — PRC =========================== */
+
+export interface SourceListItem {
+  materialCode: string;
+  siteId: string;
+  vendorId: string;
+  validFrom: string;
+  validTo?: string;
+  fixed?: boolean;
+  blocked?: boolean;
+}
+
+export interface QuotaArrangement {
+  materialCode: string;
+  siteId: string;
+  allocations: { vendorId: string; pct: number }[];
+  allocated: Record<string, number>; // vendorId -> qty allocated
+}
+
+export interface RateContract {
+  id: string;
+  number: string;
+  vendorId: string;
+  materialCode: string;
+  siteId: string;
+  rate: number;
+  capQty: number;
+  releasedQty: number;
+  validFrom: string;
+  validTo: string;
+  status: 'ACTIVE' | 'EXHAUSTED' | 'EXPIRED';
+}
+
+export interface Quotation {
+  vendorId: string;
+  rate: number;        // basic rate / unit
+  discPct: number;
+  freightPerUnit: number;
+  leadDays: number;
+  paymentDays: number;
+  validUntil: string;
+  at: string;
+}
+
+export interface Rfq {
+  id: string;
+  number: string;
+  materialCode: string;
+  qty: number;
+  uom: string;
+  siteId: string;
+  wbs?: string;
+  vendors: string[];
+  deadline: string;
+  status: 'OPEN' | 'CLOSED' | 'AWARDED';
+  quotations: Quotation[];
+  awardVendorId?: string;
+  justification?: string;
+  at: string;
+}
+
+export interface PoVersion {
+  v: number;
+  at: string;
+  by: string;
+  note: string;
+  total: number;
+  items: DocItem[];
+}
+
+/* =========================== Part 2 — INV =========================== */
+
+export interface GateEntry {
+  id: string;
+  number: string;
+  siteId: string;
+  vehicleNo: string;
+  driver: string;
+  transporter: string;
+  ewb: string;
+  poRef: string;
+  materialCode: string;
+  declaredQty: number;
+  inTime: string;
+  sealOk: boolean;
+  status: 'IN' | 'WEIGHED' | 'GR_POSTED' | 'REJECTED';
+}
+
+export interface WeighTicket {
+  id: string;
+  gateId: string;
+  ticketNo: string;
+  gross: number;
+  tare: number;
+  net: number;
+  at: string;
+  operator: string;
+  manual?: boolean;
+  reason?: string;
+}
+
+export interface Reservation {
+  id: string;
+  materialCode: string;
+  siteId: string;
+  wbs: string;
+  qty: number;
+  status: 'OPEN' | 'CONSUMED' | 'RELEASED';
+  at: string;
+}
+
+export interface ReturnableIssue {
+  id: string;
+  docId: string;
+  materialCode: string;
+  siteId: string;
+  wbs: string;
+  qty: number;
+  issuedTo: string;
+  issueDate: string;
+  dueDate: string;
+  returnedQty: number;
+  returnDate?: string;
+  condition?: 'GOOD' | 'DAMAGED' | 'LOST';
+  status: 'OUT' | 'RETURNED' | 'LOSS';
+}
+
+export interface PhysicalCount {
+  id: string;
+  number: string;
+  siteId: string;
+  materialCode: string;
+  blind: boolean;
+  bookQty: number;
+  countQty: number | null;
+  variance: number | null;
+  status: 'COUNTING' | 'VARIANCE' | 'ADJUSTED';
+  reason?: string;
+  approvedBy?: string;
+  at: string;
+}
+
+export interface Exc {
+  id: string;
+  at: string;
+  kind: 'SHORTAGE' | 'FUEL' | 'PERMIT' | 'CALIBRATION' | 'NCR_SLA' | 'REORDER' | 'ACK';
+  text: string;
+  severity: 'warn' | 'bad' | 'info';
+  ref?: string;
+  acknowledged?: boolean;
+}
+
+/* =========================== Part 2 — EAM =========================== */
+
+export interface EquipmentDoc { kind: string; no: string; validTo: string; }
+
+export interface Equipment {
+  code: string;
+  desc: string;
+  category: string;
+  make: string;
+  model: string;
+  serial: string;
+  regNo: string;
+  ownership: 'OWNED' | 'HIRED' | 'SUBCON';
+  acqValue: number;
+  siteId: string;
+  wbs?: string;
+  operatorId: string;
+  operatorLicValidTo: string;
+  status: 'AVAILABLE' | 'RUNNING' | 'IDLE' | 'BREAKDOWN' | 'MAINTENANCE';
+  hourMeter: number;
+  fuelType: string;
+  fuelNormLph: number;   // litres per hour norm
+  internalRate: number;  // ₹ per productive hour
+  docs: EquipmentDoc[];
+  pmEveryHrs: number;
+  lastPmHm: number;
+}
+
+export interface EquipmentLog {
+  id: string;
+  docId: string;
+  equipmentCode: string;
+  date: string;
+  openingHm: number;
+  closingHm: number;
+  workHrs: number;
+  idleHrs: number;
+  brkdnHrs: number;
+  standbyHrs: number;
+  operatorId: string;
+  fuelL: number;
+  wbs?: string;
+}
+
+export interface MaintOrder {
+  id: string;
+  number: string;
+  equipmentCode: string;
+  type: 'PRV' | 'BRK';
+  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
+  sparesCost: number;
+  laborCost: number;
+  extCost: number;
+  downtimeHrs: number;
+  rootCause?: string;
+  at: string;
+  settled?: boolean;
+}
+
+/* =========================== Part 2 — QMS =========================== */
+
+export interface InspectionLot {
+  id: string;
+  number: string;
+  type: 'IL-GRN' | 'IL-WRK' | 'IL-PRD' | 'IL-SRC';
+  materialCode: string;
+  qty: number;
+  siteId: string;
+  grDocId?: string;
+  vendorId?: string;
+  status: 'OPEN' | 'ACCEPTED' | 'REJECTED' | 'REWORK';
+  decisionBy?: string;
+  at?: string;
+  atCreated: string;
+}
+
+export interface TestResult {
+  id: string;
+  lotId?: string;
+  kind: 'CUBE' | 'SOIL' | 'AGG' | 'BITUMEN' | 'STEEL';
+  material: string;
+  grade: string;
+  ageDays?: number;
+  value: number;
+  spec: string;
+  pass: boolean;
+  batch?: string;
+  pourLoc?: string;
+  challan?: string;
+  equipId?: string;
+  welderId?: string;
+  at: string;
+}
+
+export interface Ncr {
+  id: string;
+  number: string;
+  title: string;
+  severity: 'MINOR' | 'MAJOR' | 'CRITICAL';
+  status: 'RAISED' | 'ASSIGNED' | 'ROOT_CAUSE' | 'CORRECTIVE' | 'PREVENTIVE' | 'VERIFICATION' | 'CLOSED';
+  raisedAt: string;
+  dueAt: string;
+  cost: number;
+  vendorId?: string;
+  link?: { lotId?: string; batch?: string; pourLoc?: string; challan?: string };
 }
 
 export interface Res {

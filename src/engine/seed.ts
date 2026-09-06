@@ -4,6 +4,9 @@ import {
   freshState, createPR, approveDoc, createPOFromPR, postGR, postInvoice, postMovement,
   daysAgoISO, todayISO,
 } from './engine';
+import { postEquipmentLog, postInternalHire } from './eam';
+import { createInspectionLot, recordTest } from './qms';
+import { createGateEntry, weighIn, reserveStock, issueReturnable, startCount, submitCount, createRfq, submitQuotation } from './logistics';
 
 /* module-level master snapshots so a demo reset is faithful */
 const MATERIALS_ORIG = JSON.parse(JSON.stringify(MATERIALS)) as typeof MATERIALS;
@@ -123,6 +126,76 @@ export function buildSeedState(): ERPState {
   }, 'USR-REQ');
   Object.assign(st, r.s);
 
+  seedLogistics(st);
+
   st.today = todayISO();
   return st;
+}
+
+/* ── Part 2 opening data: EAM logs, QMS lots/tests/NCRs, INV GR chain ── */
+function seedLogistics(st: ERPState): void {
+  let r: { s: ERPState; ok: boolean; docId?: string };
+
+  /* ── EAM: equipment logs (one fuel exception, one auto-PM trigger) ── */
+  st.today = daysAgoISO(1);
+  r = postEquipmentLog(st, { equipmentCode: 'EQ-EX201', date: daysAgoISO(1), openingHm: 6420, closingHm: 6429, workHrs: 8, idleHrs: 1, brkdnHrs: 0, standbyHrs: 0, operatorId: 'OP-1', fuelL: 175, wbs: 'PRJ-NH47-E' }, 'USR-STR');
+  Object.assign(st, r.s); /* fuel 175 L vs norm 144 L → exception */
+  const log1 = st.eqLogs[0]?.id;
+
+  r = postEquipmentLog(st, { equipmentCode: 'EQ-WA301', date: daysAgoISO(1), openingHm: 4040, closingHm: 4060, workHrs: 18, idleHrs: 2, brkdnHrs: 0, standbyHrs: 0, operatorId: 'OP-2', fuelL: 230, wbs: 'PRJ-NH47-E' }, 'USR-STR');
+  Object.assign(st, r.s); /* 4060-3800=260 ≥ 250 → auto PM order */
+
+  /* internal hire posting for the excavator log */
+  if (log1) { r = postInternalHire(st, log1, 'USR-FIN'); Object.assign(st, r.s); }
+
+  /* ── INV: gate entry → weighbridge → quality-hold GR → inspection lot ── */
+  st.today = daysAgoISO(2);
+  /* released cement PO to receive against */
+  r = createPR(st, { siteId: 'ST-NH47', submit: true, neededBy: daysAgoISO(0), docType: 'PR-STD', note: 'Deck concreting — inspection-flagged cement', items: [{ materialCode: 'MAT-C53', qty: 120, wbs: 'PRJ-NH47-S', category: 'STD' }] }, 'USR-REQ');
+  Object.assign(st, r.s);
+  const prQ = r.docId!;
+  Object.assign(st, approveDoc(st, prQ, 'APPROVE', 'Verified', 'USR-HOD').s);
+  r = createPOFromPR(st, prQ, { partnerId: 'BP-SHREE', deliveryDate: daysAgoISO(1) }, 'USR-BUY');
+  Object.assign(st, r.s);
+  const poQ = r.docId!;
+  Object.assign(st, approveDoc(st, poQ, 'APPROVE', 'Released', 'USR-HOD').s);
+
+  st.today = daysAgoISO(1);
+  r = createGateEntry(st, { siteId: 'ST-NH47', vehicleNo: 'MH-12-GT-7745', driver: 'H. Shaikh', transporter: 'Shree Logistics', ewb: 'EWB-221190345', poRef: poQ, materialCode: 'MAT-C53', declaredQty: 120, sealOk: true }, 'USR-STR');
+  Object.assign(st, r.s);
+  const gate1 = r.docId!;
+  r = weighIn(st, gate1, { gross: 132, tare: 12, operator: 'WB-OP-1' }, 'USR-STR'); /* net 120 (in bags UOM) */
+  Object.assign(st, r.s);
+  /* quality-hold GR (cement is inspection-flagged) → open inspection lot */
+  r = postGR(st, poQ, { qty: 120, toQuality: true }, 'USR-STR');
+  Object.assign(st, r.s);
+  const grQ = r.docId;
+  r = createInspectionLot(st, { type: 'IL-GRN', materialCode: 'MAT-C53', qty: 120, siteId: 'ST-NH47', grDocId: grQ, vendorId: 'BP-SHREE' }, 'USR-STR');
+  Object.assign(st, r.s);
+
+  /* ── QMS: failed 28-day cube → auto NCR ── */
+  st.today = todayISO();
+  r = recordTest(st, { kind: 'CUBE', material: 'MAT-RMC25', grade: 'M25', ageDays: 28, value: 21.4, spec: '≥ 25 MPa', pass: false, batch: 'B-1187', pourLoc: 'Pier P4 cap', challan: 'DC-3321', equipId: 'TE-CTM' }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = recordTest(st, { kind: 'STEEL', material: 'MAT-STL16', grade: 'Fe500D', value: 561, spec: '≥ 500 MPa yield', pass: true, equipId: 'TE-UT', welderId: 'WD-1' }, 'USR-STR');
+  Object.assign(st, r.s);
+
+  /* ── INV: reservation, returnable, blind count with variance, RFQ ── */
+  r = reserveStock(st, { materialCode: 'MAT-C53', siteId: 'ST-NH47', wbs: 'PRJ-NH47-S', qty: 150 }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = issueReturnable(st, { materialCode: 'MAT-PPE', siteId: 'ST-NH47', wbs: 'PRJ-NH47-S', qty: 40, issuedTo: 'R. Iyer — Structures', dueDate: daysAgoISO(-7) }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = startCount(st, { siteId: 'ST-GDN', materialCode: 'MAT-C53', blind: true }, 'USR-STR');
+  Object.assign(st, r.s);
+  const count1 = st.counts[0]?.id;
+  if (count1) { r = submitCount(st, count1, 588, 'USR-STR'); Object.assign(st, r.s); } /* book ~600 → variance */
+
+  r = createRfq(st, { materialCode: 'MAT-AGG20', qty: 800, siteId: 'ST-NH47', wbs: 'PRJ-NH47-P', vendors: ['BP-KRISH', 'BP-SAI', 'BP-SUNR'], deadline: daysAgoISO(-3) }, 'USR-BUY');
+  Object.assign(st, r.s);
+  const rfq1 = st.rfqs[0]?.id;
+  if (rfq1) {
+    Object.assign(st, submitQuotation(st, rfq1, { vendorId: 'BP-KRISH', rate: 1285, discPct: 2, freightPerUnit: 180, leadDays: 2, paymentDays: 30, validUntil: daysAgoISO(-10), at: '' }, 'USR-BUY').s);
+    Object.assign(st, submitQuotation(st, rfq1, { vendorId: 'BP-SAI', rate: 1180, discPct: 0, freightPerUnit: 310, leadDays: 4, paymentDays: 45, validUntil: daysAgoISO(-10), at: '' }, 'USR-BUY').s);
+    Object.assign(st, submitQuotation(st, rfq1, { vendorId: 'BP-SUNR', rate: 1350, discPct: 5, freightPerUnit: 120, leadDays: 3, paymentDays: 15, validUntil: daysAgoISO(-10), at: '' }, 'USR-BUY').s);
+  }
 }

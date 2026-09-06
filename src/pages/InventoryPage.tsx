@@ -19,7 +19,7 @@ export function InventoryPage() {
   const [revFor, setRevFor] = useState<string | null>(null);
 
   const stockVal = stockValueTotal(state);
-  const glVal = ['110100', '110150', '110200', '110400'].reduce((t, a) => t + glBalance(state, a), 0);
+  const glVal = ['110100', '110150', '110160', '110200', '110400'].reduce((t, a) => t + glBalance(state, a), 0);
   const brk = Math.round((stockVal - glVal) * 100) / 100;
 
   const rows = useMemo(() => state.stock

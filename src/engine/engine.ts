@@ -7,6 +7,7 @@ import {
   INFO_RECORDS, CONDITION_RECORDS, TAX_CODES, DOC_TYPES, MOVEMENT_TYPES,
   ACCOUNT_DETERMINATION, RELEASE_GROUPS, ROLES, USERS, CLOSING_STEPS_SEED,
   SOD_RULES, STATE_NAMES,
+  SOURCE_LIST_SEED, QUOTA_SEED, RATE_CONTRACT_SEED, EQUIPMENT_SEED,
 } from './config';
 
 /* ============================== utils ============================== */
@@ -15,6 +16,9 @@ export const uid = (): string =>
   Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
+
+/* Public deep-clone so Part 2 service modules can snapshot state immutably */
+export const cloneState = (s: ERPState): ERPState => clone(s);
 
 export const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -273,10 +277,10 @@ export function determineStrategy(groupId: string, value: number) {
 
 /* ============================== stock ============================== */
 
-function stockRow(s: ERPState, siteId: string, locId: string, matCode: string, stockType: StockType) {
-  let r = s.stock.find((x) => x.siteId === siteId && x.locId === locId && x.materialCode === matCode && x.stockType === stockType);
+function stockRow(s: ERPState, siteId: string, locId: string, matCode: string, stockType: StockType, vtype?: string) {
+  let r = s.stock.find((x) => x.siteId === siteId && x.locId === locId && x.materialCode === matCode && x.stockType === stockType && (x.vtype ?? '') === (vtype ?? ''));
   if (!r) {
-    r = { siteId, locId, materialCode: matCode, stockType, qty: 0, value: 0 };
+    r = { siteId, locId, materialCode: matCode, stockType, qty: 0, value: 0, vtype: vtype || undefined };
     s.stock.push(r);
   }
   return r;
@@ -465,7 +469,9 @@ export function postMovement(sIn: ERPState, a: MovementArgs, userId: string, opt
       }
     }
   } else if (legs.toType) {
-    const to = stockRow(s, legs.toSite, legs.toLoc, a.materialCode, legs.toType);
+    /* split valuation: client-issued material (130) is kept in its own valuation type */
+    const vtype = mvt.code === '130' ? 'CI' : undefined;
+    const to = stockRow(s, legs.toSite, legs.toLoc, a.materialCode, legs.toType, vtype);
     to.qty = round2(to.qty + a.qty);
     to.value = round2(to.value + value);
   }
@@ -499,6 +505,8 @@ export function postMovement(sIn: ERPState, a: MovementArgs, userId: string, opt
   if (mvt.valRel && mvt.drEvent && mvt.crEvent) {
     const dr = resolveAccount(mvt.drEvent, mvt.drEvent === 'CON' ? mvt.modifier : mat.valuationClass);
     const cr = resolveAccount(mvt.crEvent, mvt.crEvent === 'CON' ? mvt.modifier : mat.valuationClass);
+    /* split valuation: client-issued material books to the CI stock account (110160) */
+    if (mvt.code === '130') dr.account = '110160';
     postJournal(s, {
       companyId: site.companyId, dateISO, refId: id, refNumber: number, createdBy: userId,
       softCloseAdjust: per.soft || undefined, reason: a.softReason,
@@ -1150,7 +1158,7 @@ export const openCommitment = (s: ERPState): number =>
 export function freshState(): ERPState {
   const today = todayISO();
   return {
-    v: 3,
+    v: 4,
     today,
     userId: 'USR-ADM',
     companyFilter: 'ALL',
@@ -1168,6 +1176,23 @@ export function freshState(): ERPState {
     closing: clone(CLOSING_STEPS_SEED),
     freeze: {},
     authFailCount: 0,
+    /* Part 2 domain collections */
+    sources: clone(SOURCE_LIST_SEED),
+    quotas: clone(QUOTA_SEED),
+    rateContracts: clone(RATE_CONTRACT_SEED),
+    rfqs: [],
+    gateEntries: [],
+    weighTickets: [],
+    reservations: [],
+    returnables: [],
+    counts: [],
+    equipment: clone(EQUIPMENT_SEED),
+    eqLogs: [],
+    maintOrders: [],
+    inspLots: [],
+    tests: [],
+    ncrs: [],
+    exceptions: [],
   };
 }
 
