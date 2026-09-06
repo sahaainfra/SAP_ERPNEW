@@ -8,6 +8,7 @@ import {
   ACCOUNT_DETERMINATION, RELEASE_GROUPS, ROLES, USERS, CLOSING_STEPS_SEED,
   SOD_RULES, STATE_NAMES,
   SOURCE_LIST_SEED, QUOTA_SEED, RATE_CONTRACT_SEED, EQUIPMENT_SEED,
+  UOM_FACTORS_SEED, GEOFENCE_SEED,
   CONTRACTS_SEED, BOQ_SEED, RATE_LIBRARY_SEED, ASSET_SEED, GUARANTEE_SEED,
   INSURANCE_SEED, DISPUTE_SEED, COMPLIANCE_SEED, MINWAGE_SEED,
 } from './config';
@@ -1251,6 +1252,12 @@ export function freshState(): ERPState {
     authFailCount: 0,
     conversations: [],
     idem: {},
+    /* Part 2/10 MDM collections */
+    uomFactors: clone(UOM_FACTORS_SEED),
+    geofences: clone(GEOFENCE_SEED),
+    importRuns: [],
+    consumption: [],
+    mdmOverrides: [],
     /* Part 2 domain collections */
     sources: clone(SOURCE_LIST_SEED),
     quotas: clone(QUOTA_SEED),

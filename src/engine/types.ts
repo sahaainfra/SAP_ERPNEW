@@ -9,7 +9,9 @@ export type ModuleCode =
 export type StockType = 'UNR' | 'QH' | 'BLK' | 'TRN' | 'SUB' | 'RET';
 export type StockTypeName = 'Unrestricted' | 'Quality Hold' | 'Blocked' | 'Transit' | 'At Subcontractor' | 'Returnable';
 
-export type MasterStatus = 'DRAFT' | 'PENDING' | 'ACTIVE' | 'BLOCKED';
+export type MasterStatus =
+  | 'DRAFT' | 'PENDING' | 'PENDING_REVIEW' | 'PENDING_APPROVAL'
+  | 'ACTIVE' | 'BLOCKED' | 'MARKED_FOR_DELETION';
 export type DocStatus =
   | 'DRAFT' | 'SUBMITTED' | 'PENDING_RELEASE' | 'PARTIALLY_RELEASED' | 'RELEASED'
   | 'POSTED' | 'REJECTED' | 'CANCELLED' | 'REVERSED' | 'CONVERTED';
@@ -97,6 +99,24 @@ export interface Material {
   itc: ITCClass;
   royalty?: boolean;
   createdBy: string;
+  /* ---- Part 2 MDM ---- */
+  structuredName?: { noun: string; modifier?: string; size?: string; grade?: string; make?: string };
+  densityT?: number;            // t/m³ — enables mass↔volume
+  sectionalWeightKg?: number;   // steel kg per running metre (stored per diameter)
+  coefficient?: number;         // theoretical consumption per unit of executed work
+  coefficientBasis?: string;    // e.g. "bags per m³ M25"
+  wastagePct?: number;          // norm-based permitted wastage
+  budgetRate?: number;          // rate used in project budgets
+  reorderLevel?: number;
+  safetyStock?: number;
+  mrpType?: 'MANUAL' | 'REORDER' | 'PROJECT';
+  cycleClass?: 'A' | 'B' | 'C';
+  batchManaged?: boolean;
+  sourceControlled?: boolean;
+  inspectionRequired?: boolean;
+  substitutes?: string[];       // approved alternate material codes
+  splitValuation?: string;      // valuation category (domestic/imported, client-issued/purchased...)
+  version?: number;             // optimistic locking
 }
 
 export type PartnerRole = 'VENDOR' | 'SUBCON' | 'CLIENT' | 'TRANSPORTER' | 'CONSULTANT';
@@ -120,6 +140,11 @@ export interface Partner {
   rating: number; // 0..100
   status: MasterStatus;
   createdBy: string;
+  /* ---- Part 2 MDM ---- */
+  blacklist?: { flag: boolean; reason?: string; raisedBy?: string; at?: string };
+  labourLicence?: { no: string; validTo: string; strength: number };
+  ldc?: { certNo: string; rate: number; limit: number; consumed: number; validTo: string };
+  version?: number; // optimistic locking
 }
 
 export interface InfoRecord {
@@ -431,6 +456,12 @@ export interface ERPState {
   /* ---- Part 1/10 platform services ---- */
   conversations: Conversation[];
   idem: Record<string, { ok: boolean; msg: string; docId?: string }>;
+  /* ---- Part 2/10 MDM ---- */
+  uomFactors: UomFactor[];
+  geofences: Geofence[];
+  importRuns: ImportRun[];
+  consumption: ConsumptionRow[];
+  mdmOverrides: DuplicateOverride[];
   /* ---- Part 2 : logistics domain objects ---- */
   sources: SourceListItem[];
   quotas: QuotaArrangement[];
@@ -1138,3 +1169,72 @@ export interface MinWage {
 }
 
 export interface CloseoutItem { id: string; task: string; done: boolean; mandatory: boolean; }
+
+/* =========================== Part 2 — MDM =========================== */
+
+export type UomDim = 'MASS' | 'VOLUME' | 'LENGTH' | 'COUNT' | 'AREA' | 'TIME';
+
+export interface UomDef { code: string; name: string; dim: UomDim; }
+
+export interface UomFactor {
+  from: string;
+  to: string;
+  factor: number;
+  materialCode?: string;    // material-specific overrides generic
+  rounding?: 'UP' | 'DOWN' | 'NEAREST' | 'NONE';
+}
+
+export interface Geofence {
+  id: string;
+  code: string;
+  siteId: string;
+  projectCode?: string;
+  name: string;
+  type: 'ATTENDANCE' | 'SITE_BOUNDARY' | 'RESTRICTED' | 'MATERIAL_YARD' | 'CAMP';
+  shape:
+    | { kind: 'CIRCLE'; lat: number; lng: number; radiusM: number }
+    | { kind: 'POLYGON'; pts: [number, number][] };
+  minAccuracyM: number;
+  validFrom: string;
+  validTo: string;
+  priority: number;
+}
+
+export interface ImportRow {
+  row: number;
+  desc: string;
+  group: string;
+  uom: string;
+  price: number;
+  valid: boolean;
+  error?: string;
+}
+
+export interface ImportRun {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  validRows: number;
+  errorRows: ImportRow[];
+  corrected: boolean;
+  confirmed: boolean;
+  importedCodes: string[];
+  at: string;
+}
+
+export interface ConsumptionRow { materialCode: string; month: string; qty: number; }
+
+export interface DuplicateOverride {
+  id: string;
+  kind: 'MATERIAL' | 'PARTNER';
+  desc: string;
+  reason: string;
+  by: string;
+  at: string;
+}
+
+export interface ProjectTemplate {
+  code: string;
+  name: string;
+  wbs: { code: string; name: string; nodeType: string }[];
+}

@@ -4,6 +4,7 @@ import type {
   RoleDef, UserDef, ClosingStep, ModuleCode, ItemCategory,
   WbsNode, ContractMaster, BoqItem, RateAnalysis, BankGuarantee, InsurancePolicy,
   Dispute, ComplianceTask, MinWage, AssetMaster,
+  UomDef, UomFactor, Geofence, ProjectTemplate,
 } from './types';
 
 /* ---------------- Enterprise structure ---------------- */
@@ -894,6 +895,81 @@ export const ROADMAP: { part: number; title: string; status: 'LIVE' | 'NEXT' | '
   { part: 9, title: 'Communication Suite & Tools', status: 'PLANNED' },
   { part: 10, title: 'Launchpad · Analytics · AI', status: 'PLANNED' },
 ];
+
+/* ==================================================================== */
+/*  PART 2/10 — MASTER DATA MANAGEMENT CONFIG                          */
+/* ==================================================================== */
+
+/* ---- UOM conversion engine (§6): every factor is master data ---- */
+export const UOM_DEFS: UomDef[] = [
+  { code: 'KG', name: 'Kilogram', dim: 'MASS' },
+  { code: 'MT', name: 'Metric tonne', dim: 'MASS' },
+  { code: 'BAG', name: 'Bag (50 kg)', dim: 'MASS' },
+  { code: 'M3', name: 'Cubic metre', dim: 'VOLUME' },
+  { code: 'L', name: 'Litre', dim: 'VOLUME' },
+  { code: 'M', name: 'Running metre', dim: 'LENGTH' },
+  { code: 'RM', name: 'Running metre', dim: 'LENGTH' },
+  { code: 'NOS', name: 'Number', dim: 'COUNT' },
+  { code: 'SET', name: 'Set', dim: 'COUNT' },
+  { code: 'M2', name: 'Square metre', dim: 'AREA' },
+  { code: 'HR', name: 'Hour', dim: 'TIME' },
+];
+
+export const UOM_FACTORS_SEED: UomFactor[] = [
+  /* generic mass */
+  { from: 'MT', to: 'KG', factor: 1000, rounding: 'NONE' },
+  { from: 'BAG', to: 'KG', factor: 50, materialCode: 'MAT-C53', rounding: 'UP' },  /* cement 1 bag = 50 kg */
+  { from: 'BAG', to: 'MT', factor: 0.05, materialCode: 'MAT-C53', rounding: 'NONE' },
+  /* steel: sectional weight per diameter, stored not computed */
+  { from: 'M', to: 'KG', factor: 1.579, materialCode: 'MAT-STL16', rounding: 'NONE' },  /* 16mm TMT */
+  /* aggregate / concrete: bulk density per material */
+  { from: 'M3', to: 'MT', factor: 1.52, materialCode: 'MAT-AGG20', rounding: 'NONE' },
+  { from: 'M3', to: 'MT', factor: 2.4, materialCode: 'MAT-RMC25', rounding: 'NONE' },
+];
+
+/* ---- Geofence master (§8) ---- */
+export const GEOFENCE_SEED: Geofence[] = [
+  {
+    id: 'GF-01', code: 'GF-NH47-ATT', siteId: 'ST-NH47', projectCode: 'PRJ-NH47', name: 'NH-47 Attendance Fence',
+    type: 'ATTENDANCE', shape: { kind: 'CIRCLE', lat: 18.5204, lng: 73.8567, radiusM: 450 },
+    minAccuracyM: 50, validFrom: '2025-04-01', validTo: '2027-03-31', priority: 1,
+  },
+  {
+    id: 'GF-02', code: 'GF-NH47-YARD', siteId: 'ST-NH47', projectCode: 'PRJ-NH47', name: 'Material Yard — Polygon',
+    type: 'MATERIAL_YARD', shape: { kind: 'POLYGON', pts: [[18.5200, 73.8560], [18.5200, 73.8575], [18.5212, 73.8575], [18.5212, 73.8560]] },
+    minAccuracyM: 30, validFrom: '2025-04-01', validTo: '2027-03-31', priority: 2,
+  },
+];
+
+/* ---- Project templates (§4 / test 26) ---- */
+export const PROJECT_TEMPLATES: ProjectTemplate[] = [
+  {
+    code: 'TPL-HWY', name: 'Highway Package',
+    wbs: [
+      { code: '-E', name: 'Earthworks', nodeType: 'BOTH' },
+      { code: '-S', name: 'Structures', nodeType: 'BOTH' },
+      { code: '-P', name: 'Pavement', nodeType: 'BOTH' },
+      { code: '-SOH', name: 'Site Overhead', nodeType: 'ACCOUNT_ASSIGNMENT' },
+    ],
+  },
+  {
+    code: 'TPL-BLD', name: 'Building / Elevated',
+    wbs: [
+      { code: '-F', name: 'Foundations & Piles', nodeType: 'BOTH' },
+      { code: '-D', name: 'Deck & Girders', nodeType: 'BOTH' },
+      { code: '-FIN', name: 'Finishes', nodeType: 'BOTH' },
+    ],
+  },
+];
+
+/* Dual-control field list (Part 1 §9 + Part 2 §1.1) */
+export const DUAL_CONTROL_FIELDS = [
+  'valuation_class', 'price_control', 'reconciliation_account', 'bank_details',
+  'tax_registration', 'tds_section', 'min_wage_rate', 'geofence_geometry',
+];
+
+/* ---- Part 2 import sample (test 30): 500 rows, ~7% invalid ---- */
+export const IMPORT_SAMPLE = { fileName: 'materials_master_upload.xlsx', totalRows: 500 };
 
 /* Closeout pre-closure checklist template */
 export const CLOSEOUT_TEMPLATE: { task: string; mandatory: boolean }[] = [

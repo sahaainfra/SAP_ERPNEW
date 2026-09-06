@@ -31,7 +31,9 @@ export function StatusChip({ s }: { s: DocStatus }) {
 export function MasterChip({ s }: { s: MasterStatus }) {
   const map: Record<MasterStatus, string> = {
     DRAFT: 'bg-paper text-mute', PENDING: 'bg-warn-soft text-warn',
+    PENDING_REVIEW: 'bg-pet-soft text-pet', PENDING_APPROVAL: 'bg-warn-soft text-warn',
     ACTIVE: 'bg-ok-soft text-ok', BLOCKED: 'bg-bad-soft text-bad',
+    MARKED_FOR_DELETION: 'bg-bad-soft text-bad',
   };
   return <span className={`chip ${map[s]}`}>{s}</span>;
 }
