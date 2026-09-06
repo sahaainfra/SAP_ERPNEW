@@ -6,10 +6,11 @@ import {
   PriceBreakdown, ReleaseTimeline, Money, JournalView,
 } from '../components/ui';
 import {
-  createPR, createPOFromPR, postGR, postInvoice, postPayment, amendItemRate,
+  postGR, postInvoice, postPayment,
   computePricing, determineTaxKind, docById, userById, fmtINR, fmtNum, daysAheadISO,
   taxCodeFor, materialByCode,
 } from '../engine/engine';
+import { createPR, createPOFromPR, amendItemRate } from '../engine/platform';
 import { SITES, PROJECTS, COST_CENTRES, PARTNERS, COPY_RULES_PR_PO, MATERIALS, STATE_NAMES } from '../engine/config';
 import type { ItemCategory, Doc } from '../engine/types';
 

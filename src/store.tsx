@@ -6,7 +6,7 @@ import { MATERIALS, PARTNERS } from './engine/config';
 
 export interface Toast { id: number; msg: string; tone: 'ok' | 'bad' | 'warn' | 'info'; }
 
-const LS_KEY = 'vulcan-erp-core-v5';
+const LS_KEY = 'vulcan-erp-core-v6';
 
 interface Persisted { s: ERPState; m: typeof MATERIALS; p: typeof PARTNERS; }
 
@@ -15,7 +15,7 @@ function loadInitial(): ERPState {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const data = JSON.parse(raw) as Persisted;
-      if (data.s && data.s.v === 5 && Array.isArray(data.m) && Array.isArray(data.p)) {
+      if (data.s && data.s.v === 6 && Array.isArray(data.m) && Array.isArray(data.p)) {
         MATERIALS.splice(0, MATERIALS.length, ...data.m);
         PARTNERS.splice(0, PARTNERS.length, ...data.p);
         return data.s;
@@ -105,7 +105,7 @@ export function useStore(): StoreCtx {
 /* ---------------- navigation (app-level) ---------------- */
 
 export type PageId =
-  | 'cockpit' | 'structure' | 'masters' | 'procurement' | 'inventory'
+  | 'cockpit' | 'gate' | 'structure' | 'masters' | 'procurement' | 'inventory'
   | 'plant' | 'quality' | 'simulator' | 'config' | 'audit';
 
 interface NavCtx {

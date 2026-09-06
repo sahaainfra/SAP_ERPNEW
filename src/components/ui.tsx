@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X, ArrowRight, CheckCircle2, AlertTriangle, Info, XCircle } from 'lucide-react';
 import { useStore, useNav } from '../store';
 import type { DocStatus, MasterStatus, PriceResult, JournalLine, PeriodStatus } from '../engine/types';
-import { docById, flowChain, fmtINR, userById, approveDoc } from '../engine/engine';
+import { docById, flowChain, fmtINR, userById } from '../engine/engine';
+import { approveDoc } from '../engine/platform';
 import type { PageId } from '../store';
 
 /* ---------------- chips ---------------- */

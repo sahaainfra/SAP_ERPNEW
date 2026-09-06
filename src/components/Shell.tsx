@@ -2,33 +2,43 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Gauge, Network, Boxes, ShoppingCart, Warehouse, FlaskConical, SlidersHorizontal,
-  ScrollText, RotateCcw, ChevronDown, ShieldCheck, HardHat, CheckCheck,
+  Gauge, Network, Boxes, ShoppingCart, Warehouse, SlidersHorizontal,
+  ScrollText, RotateCcw, ChevronDown, ShieldCheck, HardHat, MessageSquare,
+  ShieldAlert, Wrench, FlaskConical, CheckCheck,
 } from 'lucide-react';
 import { useStore, useNav } from '../store';
 import type { PageId } from '../store';
 import { Toasts, PeriodChip } from './ui';
+import { ChatDrawer } from './ChatDrawer';
 import { USERS, ROLES, COMPANIES } from '../engine/config';
 import { userById, periodLabel, pendingReleaseDocs } from '../engine/engine';
 
 const NAV: { group: string; items: { id: PageId; label: string; icon: typeof Gauge }[] }[] = [
-  { group: 'Overview', items: [{ id: 'cockpit', label: 'Operations Cockpit', icon: Gauge }] },
   {
-    group: 'Operations',
+    group: 'Foundation',
     items: [
-      { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
-      { id: 'inventory', label: 'Inventory & Stock', icon: Warehouse },
+      { id: 'cockpit', label: 'Operations Cockpit', icon: Gauge },
+      { id: 'gate', label: 'Part 1 Acceptance Gate', icon: ShieldAlert },
     ],
   },
   {
-    group: 'Masters & Structure',
+    group: 'Modules on the platform',
+    items: [
+      { id: 'procurement', label: 'Procurement · PRC', icon: ShoppingCart },
+      { id: 'inventory', label: 'Inventory · INV', icon: Warehouse },
+      { id: 'plant', label: 'Plant & Machinery · EAM', icon: Wrench },
+      { id: 'quality', label: 'Quality · QMS', icon: CheckCheck },
+    ],
+  },
+  {
+    group: 'Masters & structure',
     items: [
       { id: 'structure', label: 'Enterprise Structure', icon: Network },
       { id: 'masters', label: 'Master Data', icon: Boxes },
     ],
   },
   {
-    group: 'Platform Core',
+    group: 'Platform core',
     items: [
       { id: 'config', label: 'Configuration', icon: SlidersHorizontal },
       { id: 'simulator', label: 'Posting Simulator', icon: FlaskConical },
@@ -88,15 +98,20 @@ function UserSwitcher() {
 export function Shell({ children }: { children: ReactNode }) {
   const { state, reset, setCompanyFilter } = useStore();
   const { page, go } = useNav();
+  const [chatOpen, setChatOpen] = useState(false);
   const pending = pendingReleaseDocs(state).length;
   const secFails = state.authFailCount;
+  const threads = state.conversations.length;
   const per = state.periods['VUL'];
   const titles: Record<PageId, [string, string]> = {
     cockpit: ['Operations Cockpit', 'Live position across logistics, finance and control'],
+    gate: ['Part 1 Acceptance Gate', '40 executable tests — the platform proves itself before Part 2'],
     structure: ['Enterprise Structure', 'The organisational skeleton every posting attaches to'],
     masters: ['Master Data', 'One record, many view segments — governed end to end'],
     procurement: ['Procurement', 'Requisition → order → receipt → invoice, on one document spine'],
     inventory: ['Inventory & Stock', 'Every stock change is a movement type — nothing touches stock directly'],
+    plant: ['Plant & Machinery', 'Hour-meter discipline, fuel exceptions and internal hire posting'],
+    quality: ['Quality Management', 'Inspection lots, usage decisions and non-conformance'],
     simulator: ['Posting Simulator', 'See the exact journal before anything is written'],
     config: ['Configuration Backbone', 'Document types · movements · pricing · accounts · release · periods'],
     audit: ['Audit & Control', 'Field-level change documents, security events and dual control'],
@@ -106,7 +121,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="h-full flex">
       {/* ---------- sidebar ---------- */}
-      <aside className="w-[228px] shrink-0 bg-side text-side-tx flex flex-col border-r border-black/40">
+      <aside className="w-[236px] shrink-0 bg-side text-side-tx flex flex-col border-r border-black/40">
         <div className="hazard h-[5px] shrink-0" />
         <div className="px-4 pt-4 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -115,7 +130,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </span>
             <div>
               <div className="font-disp font-extrabold text-white text-[15px] tracking-tight leading-none">VULCAN<span className="text-acc"> ERP</span></div>
-              <div className="text-[9px] font-mono tracking-[0.22em] text-side-tx/70 mt-1">PLATFORM CORE · PART 1</div>
+              <div className="text-[9px] font-mono tracking-[0.22em] text-side-tx/70 mt-1">PART 1/10 · FOUNDATION</div>
             </div>
           </div>
         </div>
@@ -156,6 +171,10 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="lbl ml-1">LOG</span><PeriodChip s={per.LOG.status} />
             <span className="chip ml-1">{periodLabel(state.today)}</span>
           </div>
+          <button className="btn btn-sm relative" onClick={() => setChatOpen(true)} title="Record-bound conversation threads">
+            <MessageSquare size={13} /> Threads
+            {threads > 0 && <span className="chip !py-0 !px-1.5 !text-[9.5px] bg-pet text-white border-pet">{threads}</span>}
+          </button>
           <select className="inp !w-[150px] !py-1.5 !text-[12px]" value={state.companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
             <option value="ALL">All companies</option>
             {COMPANIES.map((c) => <option key={c.code} value={c.code}>{c.code} · {c.name.split(' ')[0]}</option>)}
@@ -169,6 +188,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </motion.div>
         </main>
       </div>
+      <ChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
       <Toasts />
     </div>
   );

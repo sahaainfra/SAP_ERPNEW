@@ -867,6 +867,34 @@ export const STATUTORY_RATES = {
   securedAdvanceRatePct: 75,
 };
 
+/* ==================================================================== */
+/*  PART 1/10 — PLATFORM FOUNDATION CONFIG                              */
+/* ==================================================================== */
+
+/* Field status groups: mandatory / optional / hidden per document type — configuration, not code */
+export const FIELD_STATUS_GROUPS: Record<string, Record<string, 'REQ' | 'OPT' | 'HID'>> = {
+  'PR-STD': { JUSTIFICATION: 'HID', NEEDED_BY: 'REQ', COST_OBJECT: 'REQ' },
+  'PR-EMG': { JUSTIFICATION: 'REQ', NEEDED_BY: 'REQ', COST_OBJECT: 'REQ' },
+  'PR-SVC': { JUSTIFICATION: 'OPT', NEEDED_BY: 'REQ', COST_OBJECT: 'REQ' },
+  'PR-CAP': { JUSTIFICATION: 'REQ', NEEDED_BY: 'OPT', COST_OBJECT: 'REQ' },
+  'PO-STD': { DELIVERY_DATE: 'REQ', INCOTERMS: 'OPT' },
+  'PO-IMP': { DELIVERY_DATE: 'REQ', INCOTERMS: 'REQ', LC_REFERENCE: 'REQ' },
+};
+
+/* The ten-part build programme */
+export const ROADMAP: { part: number; title: string; status: 'LIVE' | 'NEXT' | 'PLANNED' }[] = [
+  { part: 1, title: 'Platform Foundation', status: 'LIVE' },
+  { part: 2, title: 'Master Data Management', status: 'NEXT' },
+  { part: 3, title: 'Project System & Budget Control', status: 'PLANNED' },
+  { part: 4, title: 'Procurement — Source to Order', status: 'PLANNED' },
+  { part: 5, title: 'Stores & Inventory — Gate to Bin', status: 'PLANNED' },
+  { part: 6, title: 'Contracts · Measurement · Billing', status: 'PLANNED' },
+  { part: 7, title: 'Finance · Controlling · Compliance', status: 'PLANNED' },
+  { part: 8, title: 'HR · Plant · Production · QMS · EHS', status: 'PLANNED' },
+  { part: 9, title: 'Communication Suite & Tools', status: 'PLANNED' },
+  { part: 10, title: 'Launchpad · Analytics · AI', status: 'PLANNED' },
+];
+
 /* Closeout pre-closure checklist template */
 export const CLOSEOUT_TEMPLATE: { task: string; mandatory: boolean }[] = [
   { task: 'All variations approved', mandatory: true },

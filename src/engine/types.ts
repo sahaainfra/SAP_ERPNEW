@@ -232,6 +232,9 @@ export interface ReleaseStepRec {
   at?: string;
   comment?: string;
   snapshot?: { total: number; at: string; by: string };
+  slaHours?: number;
+  slaDueAt?: string;
+  escalated?: boolean;
 }
 
 export interface ReleaseState {
@@ -274,6 +277,9 @@ export interface Doc {
   reversalOf?: string;
   snapshots?: { at: string; by: string; total: number; step: string }[];
   softCloseAdjust?: boolean;
+  version?: number;               /* optimistic locking */
+  conversationId?: string;        /* context-bound thread (COM) */
+  rejectedSnapshot?: { total: number; rate: number; at: string };
 }
 
 export interface JournalLine {
@@ -301,6 +307,29 @@ export interface Journal {
   createdBy: string;
   softCloseAdjust?: boolean;
   reason?: string;
+  reversalOf?: string;   /* linked contra — both entries reference each other */
+  reversedBy?: string;
+}
+
+/* ---------------- context-bound communication (COM) ---------------- */
+
+export interface ChatMsg {
+  id: string;
+  user: string;
+  at: string;
+  text: string;
+  system?: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  refType: string;
+  refId: string;
+  refNumber?: string;
+  module: string;
+  legalHold?: boolean;
+  messages: ChatMsg[];
 }
 
 export interface StockRow {
@@ -399,6 +428,9 @@ export interface ERPState {
   closing: ClosingStep[];
   freeze: Record<string, string>; // partnerId -> frozen until ISO
   authFailCount: number;
+  /* ---- Part 1/10 platform services ---- */
+  conversations: Conversation[];
+  idem: Record<string, { ok: boolean; msg: string; docId?: string }>;
   /* ---- Part 2 : logistics domain objects ---- */
   sources: SourceListItem[];
   quotas: QuotaArrangement[];
@@ -708,6 +740,7 @@ export interface Res {
   msg: string;
   tone: 'ok' | 'bad' | 'warn' | 'info';
   docId?: string;
+  detail?: string;
 }
 
 /* =========================== Part 3 — PRJ =========================== */

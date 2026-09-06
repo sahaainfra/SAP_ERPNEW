@@ -13,6 +13,7 @@ import { createSuborder, issueFreeIssueMaterial } from './sub';
 import { itcReconcile, computeCess } from './cmp';
 import { runResultsAnalysis } from './prj';
 import { recordProfitForecast } from './ctl';
+import { backfillConversations } from './platform';
 
 /* module-level master snapshots so a demo reset is faithful */
 const MATERIALS_ORIG = JSON.parse(JSON.stringify(MATERIALS)) as typeof MATERIALS;
@@ -134,6 +135,9 @@ export function buildSeedState(): ERPState {
 
   seedLogistics(st);
   seedCommercial(st);
+
+  /* Record-bound conversation threads attach to every submitted document */
+  backfillConversations(st);
 
   st.today = todayISO();
   return st;

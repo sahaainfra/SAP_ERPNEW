@@ -329,7 +329,8 @@ export function determineStrategy(groupId: string, value: number) {
   const strat = [...group.strategies].sort((a, b) => a.max - b.max).find((st) => value <= st.max) ?? group.strategies[group.strategies.length - 1];
   const release: ReleaseState = {
     groupId, strategyId: strat.id, strategyName: strat.name,
-    steps: strat.steps.map((st) => ({ code: st.code, title: st.title, role: st.role, valueLimit: st.valueLimit, status: 'PENDING' as const })),
+    /* SLA per step — breached steps auto-escalate (see platform.escalateOverdue) */
+    steps: strat.steps.map((st) => ({ code: st.code, title: st.title, role: st.role, valueLimit: st.valueLimit, status: 'PENDING' as const, slaHours: 48, slaDueAt: daysAheadISO(2) })),
     indicator: 'BLOCKED', resets: 0,
   };
   return release;
@@ -1230,7 +1231,7 @@ export const openCommitment = (s: ERPState): number =>
 export function freshState(): ERPState {
   const today = todayISO();
   return {
-    v: 5,
+    v: 6,
     today,
     userId: 'USR-ADM',
     companyFilter: 'ALL',
@@ -1248,6 +1249,8 @@ export function freshState(): ERPState {
     closing: clone(CLOSING_STEPS_SEED),
     freeze: {},
     authFailCount: 0,
+    conversations: [],
+    idem: {},
     /* Part 2 domain collections */
     sources: clone(SOURCE_LIST_SEED),
     quotas: clone(QUOTA_SEED),
