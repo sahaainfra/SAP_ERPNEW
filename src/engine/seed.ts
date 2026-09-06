@@ -13,6 +13,10 @@ import { createSuborder, issueFreeIssueMaterial } from './sub';
 import { itcReconcile, computeCess } from './cmp';
 import { runResultsAnalysis } from './prj';
 import { recordProfitForecast } from './ctl';
+import {
+  createProjectFromTemplate, saveBaseline, createDpr, raiseRfi, raiseSiteInstruction, recordForecast,
+  addMeasurement as psAddMeasurement, logHindrance as psLogHindrance,
+} from './prjsys';
 import { backfillConversations } from './platform';
 
 /* module-level master snapshots so a demo reset is faithful */
@@ -135,6 +139,7 @@ export function buildSeedState(): ERPState {
 
   seedLogistics(st);
   seedCommercial(st);
+  seedProjectSystem(st);
 
   /* Record-bound conversation threads attach to every submitted document */
   backfillConversations(st);
@@ -290,4 +295,86 @@ function seedCommercial(st: ERPState): void {
   Object.assign(st, r.s);
 
   st.today = todayISO();
+}
+
+/* ── Part 3/10 opening: project system (WBS · BOQ · planning · DPR · registers · forecasts) ── */
+function seedProjectSystem(st: ERPState): void {
+  let r: { s: ERPState; ok: boolean; docId?: string };
+
+  /* 0 · NH-47 WBS skeleton (summary + cost/billing leaves) */
+  st.wbsElements.push(
+    { code: 'PRJ-NH47', desc: 'NH-47 Package-3 — 4-Laning', level: 1, projectCode: 'PRJ-NH47', nodeType: 'SUMMARY', planningElement: true, budgetElement: true, costObject: false, billingElement: false, responsible: 'USR-DIR', profitCentre: 'PC-ROAD', status: 'RELEASED', version: 1 },
+    { code: 'PRJ-NH47-E', desc: 'Earthworks', level: 2, parent: 'PRJ-NH47', projectCode: 'PRJ-NH47', nodeType: 'WORK', planningElement: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M3', status: 'RELEASED', version: 1 },
+    { code: 'PRJ-NH47-S', desc: 'Structures', level: 2, parent: 'PRJ-NH47', projectCode: 'PRJ-NH47', nodeType: 'WORK', planningElement: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M3', status: 'RELEASED', version: 1 },
+    { code: 'PRJ-NH47-P', desc: 'Pavement', level: 2, parent: 'PRJ-NH47', projectCode: 'PRJ-NH47', nodeType: 'WORK', planningElement: true, budgetElement: true, costObject: true, billingElement: true, costCentre: 'CC-4700', profitCentre: 'PC-ROAD', uom: 'M2', status: 'RELEASED', version: 1 },
+  );
+
+  /* 1 · A bridge project created from a template in one action (RELEASED so it accepts cost) */
+  r = createProjectFromTemplate(st, { template: 'TPL-BRIDGE', projectCode: 'PRJ-BRG', projectName: 'River Crossing Bridge' }, 'USR-DIR');
+  Object.assign(st, r.s);
+  st.wbsElements.filter((w) => w.projectCode === 'PRJ-BRG').forEach((w) => { w.status = 'RELEASED'; });
+
+  /* 2 · Schedule: activities + a locked baseline for NH-47 earthworks */
+  const A = (id: string, wbs: string, desc: string, duration: number, deps: { activityId: string; type: 'FS' | 'SS' | 'FF' | 'SF'; lag: number }[], pct: number, method: 'UNITS' | 'MILESTONE' | 'SF' | 'DURATION' | 'LOE') =>
+    ({ id, wbs, desc, duration, deps, pctComplete: pct, progressMethod: method });
+  st.psActivities.push(
+    A('ACT-01', 'PRJ-NH47-E', 'Clearing & grubbing', 10, [], 100, 'DURATION'),
+    A('ACT-02', 'PRJ-NH47-E', 'Embankment — Reach R1', 30, [{ activityId: 'ACT-01', type: 'FS', lag: 0 }], 60, 'UNITS'),
+    A('ACT-03', 'PRJ-NH47-E', 'GSB laying', 20, [{ activityId: 'ACT-02', type: 'SS', lag: 10 }], 20, 'UNITS'),
+    A('ACT-04', 'PRJ-NH47-E', 'WMM laying', 15, [{ activityId: 'ACT-03', type: 'FS', lag: 0 }], 0, 'UNITS'),
+    A('ACT-05', 'PRJ-NH47-S', 'Pile foundations', 25, [{ activityId: 'ACT-01', type: 'FS', lag: 0 }], 40, 'UNITS'),
+    A('ACT-06', 'PRJ-NH47-S', 'Pier caps', 12, [{ activityId: 'ACT-05', type: 'FS', lag: 0 }], 0, 'MILESTONE'),
+  );
+  r = saveBaseline(st, { projectCode: 'PRJ-NH47', reason: 'Baseline locked at award — contractual schedule' }, 'USR-DIR');
+  Object.assign(st, r.s);
+
+  /* 3 · BOQ with part-rate billing stages + material coefficients */
+  st.psBoq.push(
+    { id: 'PSB-01', contractId: 'CN-001', projectCode: 'PRJ-NH47', itemCode: '2.1', level: 1, itemType: 'ITEM', desc: 'Embankment construction', spec: 'MoRTH Cl 300', unit: 'M3', tenderQty: 120000, tenderRate: 185, revisedQty: 120000, deviationPct: 15, wbs: 'PRJ-NH47-E', costCode: 'CC-MAT', rateVersion: 1, rateEffective: st.today, materialCoeff: [{ material: 'MAT-AGG20', coeff: 1.3 }] },
+    { id: 'PSB-02', contractId: 'CN-001', projectCode: 'PRJ-NH47', itemCode: '4.3', level: 1, itemType: 'ITEM', desc: 'RCC M25 in structures', spec: 'IS 456', unit: 'M3', tenderQty: 9500, tenderRate: 7850, revisedQty: 9500, deviationPct: 10, wbs: 'PRJ-NH47-S', costCode: 'CC-MAT', rateVersion: 1, rateEffective: st.today, materialCoeff: [{ material: 'MAT-C53', coeff: 7.6 }, { material: 'MAT-STL16', coeff: 0.085 }], billingStages: [{ stage: 'SHUTTER', desc: 'Shuttering complete', pct: 30 }, { stage: 'REBAR', desc: 'Reinforcement placed', pct: 25 }, { stage: 'POUR', desc: 'Concrete poured', pct: 35 }, { stage: 'CURE', desc: 'Curing + finishing', pct: 10 }] },
+    { id: 'PSB-03', contractId: 'CN-001', projectCode: 'PRJ-NH47', itemCode: '4.4', level: 1, itemType: 'ITEM', desc: 'Reinforcement steel Fe500D', spec: 'IS 1786', unit: 'MT', tenderQty: 780, tenderRate: 74500, revisedQty: 780, deviationPct: 10, wbs: 'PRJ-NH47-S', costCode: 'CC-MAT', rateVersion: 1, rateEffective: st.today },
+  );
+
+  /* 4 · Measurements — some certified (billed), some not */
+  st.psMeasurements.push(
+    { id: 'PSM-01', boqItemId: 'PSB-01', qty: 48000, dateISO: daysAgoISO(20), certified: true, certifiedBillId: 'RA-01' },
+    { id: 'PSM-02', boqItemId: 'PSB-01', qty: 4000, dateISO: daysAgoISO(5), certified: true },
+    { id: 'PSM-03', boqItemId: 'PSB-02', qty: 3000, stage: 'SHUTTER', dateISO: daysAgoISO(15), certified: true, certifiedBillId: 'RA-01' },
+    { id: 'PSM-04', boqItemId: 'PSB-02', qty: 1100, stage: 'REBAR', dateISO: daysAgoISO(3), certified: false },
+    { id: 'PSM-05', boqItemId: 'PSB-03', qty: 300, dateISO: daysAgoISO(10), certified: true, certifiedBillId: 'RA-01' },
+  );
+
+  /* 5 · Budgets per cost-object WBS */
+  st.budgets['PRJ-NH47-E'] = { org: 2_40_00_000, sup: 0, ret: 0 };
+  st.budgets['PRJ-NH47-S'] = { org: 3_10_00_000, sup: 15_00_000, ret: 0 };
+  st.budgets['PRJ-NH47-P'] = { org: 1_60_00_000, sup: 0, ret: 0 };
+
+  /* 6 · Actual cost posted to earthworks (marks the node as posted-to) */
+  r = postMovement(st, { movementCode: '200', materialCode: 'MAT-AGG20', qty: 900, siteId: 'ST-NH47', locId: 'UNR', wbs: 'PRJ-NH47-E' }, 'USR-STR');
+  Object.assign(st, r.s);
+  st.wbsElements.forEach((w) => { if (w.code === 'PRJ-NH47-E') w.postedTo = true; });
+
+  /* 7 · A DPR pre-filled from attendance / plant logs / material documents */
+  st.today = daysAgoISO(1);
+  r = createDpr(st, { projectCode: 'PRJ-NH47', dateISO: daysAgoISO(1), shift: 'DAY', submit: true }, 'USR-STR');
+  Object.assign(st, r.s);
+  st.today = todayISO();
+
+  /* 8 · Site registers: a hindrance with a notice deadline approaching, an RFI, a site instruction */
+  r = psLogHindrance(st, { projectCode: 'PRJ-NH47', type: 'Client drawing delay', desc: 'GAD for minor bridge at Ch 3+200 not issued', dateFrom: daysAgoISO(6), fronts: 'Reach R2 — minor bridge', activityIds: ['ACT-03'], noticeServed: false, noticeDeadline: daysAgoISO(-5), manpowerIdle: 18, equipmentIdle: 2 }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = psLogHindrance(st, { projectCode: 'PRJ-NH47', type: 'Utility shifting', desc: 'HT line at Ch 1+800 pending DISCOM clearance', dateFrom: daysAgoISO(24), fronts: 'Reach R1', activityIds: ['ACT-02'], noticeServed: true, noticeRef: 'VUL/NH47/NTC/014', noticeDeadline: daysAgoISO(14) }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = raiseRfi(st, { projectCode: 'PRJ-NH47', toWhom: "Consultant (PMC)", query: 'Clarify bearing details at pier P4 — drawing contradicts spec', drawingRef: 'SB-104 Rev C', requiredBy: daysAgoISO(-10) }, 'USR-STR');
+  Object.assign(st, r.s);
+  r = raiseSiteInstruction(st, { projectCode: 'PRJ-NH47', from: "Client's Engineer", subject: 'Additional under-drain at Ch 2+100', clause: 'Clause 12.3', costImplication: 'YES', costAmount: 4_50_000 }, 'USR-STR');
+  Object.assign(st, r.s);
+
+  /* 9 · Forecast discipline — three retained versions showing a sliding margin */
+  r = recordForecast(st, { projectCode: 'PRJ-NH47', wbs: 'PRJ-NH47-S', period: '2025-10', forecastEac: 2_85_00_000, basis: 'BUDGET_RATE' }, 'USR-COM');
+  Object.assign(st, r.s);
+  r = recordForecast(st, { projectCode: 'PRJ-NH47', wbs: 'PRJ-NH47-S', period: '2025-11', forecastEac: 2_97_00_000, basis: 'LATEST_ACTUAL', basisNote: 'Steel rate firmed up 6%' }, 'USR-COM');
+  Object.assign(st, r.s);
+  r = recordForecast(st, { projectCode: 'PRJ-NH47', wbs: 'PRJ-NH47-S', period: '2025-12', forecastEac: 3_09_00_000, basis: 'LATEST_PURCHASE', basisNote: 'Cement price revised; consumption 4% over norm' }, 'USR-COM');
+  Object.assign(st, r.s);
 }

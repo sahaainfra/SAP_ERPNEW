@@ -444,10 +444,23 @@ export function previewMovement(sIn: ERPState, a: MovementArgs, userId: string):
   if (mvt.required.includes('CC') && a.wbs) { reqOk = false; reqNotes.push('Two primary cost objects (WBS + CC) — rejected'); }
   add('Required fields / cost object', reqOk, reqOk ? (a.wbs ? `Cost object: WBS ${a.wbs}` : a.cc ? `Cost object: CC ${a.cc}` : 'None required') : reqNotes.join('; '));
 
+  let wbsOk = true;
   if (a.wbs && site) {
     const prj = projectOfWbs(a.wbs);
     const cross = prj ? prj.companyId !== site.companyId : true;
     add('Company code integrity', !cross, cross ? `WBS belongs to ${prj?.companyId ?? '—'}; site to ${site.companyId} — cross-company draw refused` : `WBS ${a.wbs} and site ${a.siteId} both in ${site.companyId}`);
+    if (cross) wbsOk = false;
+    /* Rule: only a cost-object leaf accepts cost; summary nodes aggregate, never post */
+    const node = s.wbsElements.find((w) => w.code === a.wbs);
+    if (node) {
+      const isLeaf = node.nodeType === 'WORK' && node.costObject;
+      const statusOk = node.status === 'RELEASED' || node.status === 'TECH_COMPLETE';
+      add('WBS cost-object & status rule', isLeaf && statusOk,
+        !isLeaf ? `${a.wbs} is a ${node.nodeType} node — summary nodes aggregate; only cost-object leaves accept cost`
+          : !statusOk ? `${a.wbs} is ${node.status} — CREATED/CLOSED nodes accept no cost`
+          : `${a.wbs} is a released cost-object leaf — accepts cost`);
+      if (!isLeaf || !statusOk) wbsOk = false;
+    }
   }
 
   const dateISO = a.dateISO ?? s.today;
@@ -457,7 +470,7 @@ export function previewMovement(sIn: ERPState, a: MovementArgs, userId: string):
   /* stock availability — negative stock unreachable */
   let value = 0;
   const deltas: MovementPreview['deltas'] = [];
-  let blocked = !mat || mat.status !== 'ACTIVE' || !auth.ok || !reqOk || !per.ok;
+  let blocked = !mat || mat.status !== 'ACTIVE' || !auth.ok || !reqOk || !per.ok || !wbsOk;
   if (site && mat) {
     const uc = unitCost(s, legs.fromSite, legs.fromLoc, a.materialCode, legs.fromType ?? 'UNR');
     if (mvt.code === '530') {
@@ -1300,6 +1313,18 @@ export function freshState(): ERPState {
     wbsVersions: {},
     physicalProgress: {},
     raRunHistory: [],
+    /* Part 3/10 project system collections */
+    wbsElements: [],
+    psActivities: [],
+    baselines: [],
+    psBoq: [],
+    psMeasurements: [],
+    dprs: [],
+    hindranceRegs: [],
+    siteInstructions: [],
+    rfis: [],
+    costForecasts: [],
+    raPostings: [],
   };
 }
 

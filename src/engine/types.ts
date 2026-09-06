@@ -67,7 +67,7 @@ export interface ProjectDef {
   companyId: string;
   siteCode: string;
   budget: number;
-  wbs: WbsElement[];
+  wbs: { code: string; name: string }[];
 }
 
 export interface CostCentre { code: string; name: string; companyId: string; group: string; }
@@ -504,6 +504,19 @@ export interface ERPState {
   wbsVersions: Record<string, WbsVersion[]>;  // projectCode -> versions
   physicalProgress: Record<string, number>;   // wbsCode -> %
   raRunHistory: RaRunRecord[];                // results-analysis postings
+
+  /* ---- Part 3/10 : project system domain objects ---- */
+  wbsElements: PsWbs[];
+  psActivities: Activity[];
+  baselines: { projectCode: string; version: number; reason: string; at: string; snapshot: Record<string, { es: number; ef: number }> }[];
+  psBoq: PsBoq[];
+  psMeasurements: PsMeasurement[];
+  dprs: DailyReport[];
+  hindranceRegs: HindranceReg[];
+  siteInstructions: SiteInstruction[];
+  rfis: Rfi[];
+  costForecasts: CostForecast[];
+  raPostings: RaPosting[];
 }
 
 /* =========================== Part 2 — PRC =========================== */
@@ -1237,4 +1250,195 @@ export interface ProjectTemplate {
   code: string;
   name: string;
   wbs: { code: string; name: string; nodeType: string }[];
+}
+
+/* ==================== Part 3/10 — PROJECT SYSTEM ==================== */
+/* WbsStatus ('CREATED'|'RELEASED'|'TECH_COMPLETE'|'CLOSED') is reused from Part 1 PRJ types above */
+export type NodeType = 'SUMMARY' | 'WORK';
+
+export interface PsWbs {
+  code: string;
+  desc: string;
+  level: number;
+  parent?: string;
+  projectCode: string;
+  nodeType: NodeType;
+  planningElement: boolean;
+  budgetElement: boolean;
+  costObject: boolean;
+  billingElement: boolean;
+  responsible?: string;
+  costCentre?: string;
+  profitCentre?: string;
+  uom?: string;
+  plannedQty?: number;
+  chainageFrom?: string;
+  chainageTo?: string;
+  drawingRefs?: string[];
+  status: WbsStatus;
+  version: number;
+  postedTo?: boolean; // set true once any cost lands here
+}
+
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+export interface Activity {
+  id: string;
+  wbs: string;
+  desc: string;
+  duration: number; // working days
+  deps: { activityId: string; type: DependencyType; lag: number }[];
+  calendar?: string;
+  resources?: string;
+  milestone?: boolean;
+  es?: number; ef?: number; ls?: number; lf?: number; float?: number;
+  baselineStart?: number; baselineFinish?: number;
+  actualStart?: number; actualFinish?: number;
+  pctComplete: number;
+  progressMethod: 'UNITS' | 'MILESTONE' | 'SF' | 'DURATION' | 'LOE';
+}
+
+export interface BillingStage { stage: string; desc: string; pct: number; }
+
+export interface PsBoq {
+  id: string;
+  contractId: string;
+  projectCode: string;
+  itemCode: string;
+  parentItem?: string;
+  level: number;
+  itemType: 'HEADING' | 'ITEM' | 'SUB_ITEM' | 'PROVISIONAL' | 'DAYWORK' | 'EXTRA';
+  desc: string;
+  spec?: string;
+  unit: string;
+  tenderQty: number;
+  tenderRate: number;
+  revisedQty: number;
+  deviationPct: number; // permitted
+  wbs: string;
+  costCode: string;
+  billingStages?: BillingStage[];
+  materialCoeff?: { material: string; coeff: number }[];
+  labourNorm?: number;
+  rateVersion: number;
+  rateEffective: string;
+  variationApproved?: boolean;
+}
+
+export interface PsMeasurement {
+  id: string;
+  boqItemId: string;
+  qty: number;
+  stage?: string; // for part-rate billing
+  dateISO: string;
+  certified: boolean;
+  certifiedBillId?: string;
+}
+
+export type DprStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REVISION';
+export interface DprActivity { wbs: string; activityId?: string; desc: string; qty: number; unit: string; cumulative: number; pct: number; }
+export interface DailyReport {
+  id: string;
+  number: string;
+  projectCode: string;
+  dateISO: string;
+  shift: 'DAY' | 'NIGHT' | 'FULL';
+  reportedBy: string;
+  approvedBy?: string;
+  status: DprStatus;
+  revisionOf?: string;
+  revisionReason?: string;
+  weather: { condition: string; tempC: number; rainMm: number; hrsLost: number };
+  activities: DprActivity[];
+  manpower: { agency: string; trade: string; category: string; count: number }[];
+  equipment: { code: string; hrs: number; idleHrs: number; breakdown: boolean }[];
+  materialsReceived: { material: string; qty: number }[];
+  materialsConsumed: { material: string; qty: number }[];
+  safety: { observations: number; incidents: number; toolboxTalk: boolean };
+  hindranceIds: string[];
+  instructionIds: string[];
+  photos: { name: string; gps: string; at: string }[];
+  nextDayPlan: string;
+  remarks: string;
+}
+
+export interface HindranceReg {
+  id: string;
+  number: string;
+  projectCode: string;
+  dateFrom: string;
+  dateTo?: string;
+  type: string;
+  desc: string;
+  frontsAffected: string;
+  activityIds: string[];
+  manpowerIdle?: number;
+  equipmentIdle?: number;
+  qtyNotExecuted?: number;
+  noticeServed: boolean;
+  noticeDate?: string;
+  noticeRef?: string;
+  noticeDeadline?: string; // contractual
+  status: 'OPEN' | 'CLEARED' | 'LINKED_EOT';
+  eotClaimId?: string;
+}
+
+export interface SiteInstruction {
+  id: string;
+  number: string;
+  projectCode: string;
+  dateReceived: string;
+  from: string;
+  subject: string;
+  clause?: string;
+  costImplication?: 'YES' | 'NO' | 'TBD';
+  costAmount?: number;
+  timeImplication?: number;
+  responseSent: boolean;
+  variationId?: string;
+  status: 'OPEN' | 'RESPONDED' | 'CLOSED';
+}
+
+export interface Rfi {
+  id: string;
+  number: string;
+  projectCode: string;
+  dateRaised: string;
+  toWhom: string;
+  query: string;
+  drawingRef?: string;
+  requiredBy: string;
+  responseDate?: string;
+  status: 'OPEN' | 'ANSWERED';
+}
+
+export interface CostForecast {
+  id: string;
+  projectCode: string;
+  wbs: string;
+  period: string;
+  version: number;
+  forecastEac: number;
+  forecastMargin: number;
+  basis: 'BUDGET_RATE' | 'LATEST_ACTUAL' | 'LATEST_PURCHASE' | 'MANUAL';
+  basisNote?: string;
+  preparedBy: string;
+  approvedBy?: string;
+  at: string;
+}
+
+export interface RaPosting {
+  id: string;
+  projectCode: string;
+  period: string;
+  pocCost: number;
+  pocPhysical: number;
+  calculatedRevenue: number;
+  billedRevenue: number;
+  unbilledRevenue: number; // contract asset
+  billingInAdvance: number; // contract liability
+  expectedLoss: number;
+  journalNumber?: string;
+  status: 'POSTED' | 'REVERSED';
+  reversedBy?: string;
+  at: string;
 }
