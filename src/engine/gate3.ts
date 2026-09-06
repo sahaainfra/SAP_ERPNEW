@@ -112,7 +112,7 @@ export const GATE3_TESTS: GateTest[] = [
       const t0 = performance.now();
       const okMove = reorderWbs(s, 'PRJ-BRG-STR-SUP-DECK', 'PRJ-BRG-STR-SUB', 'USR-DIR');
       const badMove = reorderWbs(okMove.s, 'PRJ-NH47-E', 'PRJ-NH47-P', 'USR-DIR');
-      const audited = okMove.s.audit.some((a) => a.action === 'WBS' && a.reason?.includes('reorder'));
+      const audited = okMove.s.audit.some((a) => a.object === 'WBS' && a.reason?.includes('reorder'));
       const pass = okMove.ok && !badMove.ok && audited;
       return R(7, pass, `Unposted node reorder → ${okMove.ok ? 'allowed + change document recorded' : 'refused (FAIL)'}. Posted node reorder → ${badMove.ok ? 'allowed (FAIL)' : `refused: “${badMove.msg}”`}.`, t0);
     },
@@ -207,7 +207,7 @@ export const GATE3_TESTS: GateTest[] = [
       ];
       const cyc = computeCpm(cyclic);
       const pass = cpm.ok && cpm.criticalPath.length > 0 && cpm.projectDuration > 0 && !cyc.ok && (cyc.cycle ?? []).length > 0;
-      return R(13, pass, `Forward/backward pass: duration ${cpm.projectDuration} days, critical path ${cpm.cpm ?? ''}${cpm.criticalPath.join(' → ')}. Cyclic network → ${cyc.ok ? 'computed (FAIL — should not)' : `reported as cycle [${(cyc.cycle ?? []).join(' → ')}], no hang`}.`, t0);
+      return R(13, pass, `Forward/backward pass: duration ${cpm.projectDuration} days, critical path ${cpm.criticalPath.join(' → ')}. Cyclic network → ${cyc.ok ? 'computed (FAIL — should not)' : `reported as cycle [${(cyc.cycle ?? []).join(' → ')}], no hang`}.`, t0);
     },
   },
   {
@@ -307,9 +307,9 @@ export const GATE3_TESTS: GateTest[] = [
       const t0 = performance.now();
       const before = currentBudget(s, 'PRJ-NH47-S');
       const doc = createBudgetDoc(s, { wbs: 'PRJ-NH47-S', amount: 20_00_000, kind: 'BUD-SUP', reason: 'Steel price escalation approved by commercial', submit: true }, 'USR-COM');
-      const applied = applyBudgetOnRelease(doc.s, doc.docId!);
-      const after = currentBudget(applied.s ?? doc.s, 'PRJ-NH47-S');
-      const audited = (applied.s ?? doc.s).audit.some((a) => a.action === 'BUDGET' && a.field === 'BUD-SUP');
+      applyBudgetOnRelease(doc.s, doc.docId!);
+      const after = currentBudget(doc.s, 'PRJ-NH47-S');
+      const audited = doc.s.audit.some((a) => a.object === 'BUDGET' && a.field === 'BUD-SUP');
       const pass = doc.ok && after === before + 20_00_000 && audited;
       return R(21, pass, `BUD-SUP document created (approval required), then released: budget ${fmtINR(before)} → ${fmtINR(after)}. It is a numbered, approved document in the change history — never a field edit.`, t0);
     },
@@ -331,7 +331,7 @@ export const GATE3_TESTS: GateTest[] = [
     run: (s) => {
       const t0 = performance.now();
       const r = transferBudget(s, { from: 'PRJ-NH47-E', to: 'PRJ-NH47-P', amount: 10_00_000, reason: 'Pavement scope increased; earthworks under-run' }, 'USR-COM');
-      const audited = r.s.audit.some((a) => a.action === 'BUDGET_TRANSFER');
+      const audited = r.s.audit.some((a) => a.object === 'BUDGET_TRANSFER');
       const pass = r.ok && r.msg.includes('Net portfolio change ₹0') && audited;
       return R(23, pass, `${r.ok ? r.msg : r.msg} · change document recorded.`, t0);
     },
