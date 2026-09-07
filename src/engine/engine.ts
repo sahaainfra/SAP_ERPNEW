@@ -1333,6 +1333,10 @@ export function freshState(): ERPState {
     rateBuilds: [], rateBooks: [], drawings: [], mbEntries: [], clientBills: [],
     subOrdersP6: [], subBills: [], claimCases: [], receivables: [],
     retentionSchedule: [], lessonsLearned: [],
+    /* Part 8 */
+    employees: [], attendancePunches: [], labourGangs: [],
+    mixDesigns: [], batchTickets: [], productionOrders: [],
+    permits: [], incidents: [], inductions: [],
   };
 }
 

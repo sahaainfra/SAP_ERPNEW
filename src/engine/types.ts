@@ -544,6 +544,17 @@ export interface ERPState {
   receivables: ReceivableItem[];
   retentionSchedule: RetentionRelease[];
   lessonsLearned: Lesson[];
+
+  /* ---- Part 8 : HCM · PRD · EHS ---- */
+  employees: Employee[];
+  attendancePunches: AttendancePunch[];
+  labourGangs: LabourGang[];
+  mixDesigns: MixDesign[];
+  batchTickets: BatchTicket[];
+  productionOrders: ProductionOrder[];
+  permits: PermitToWork[];
+  incidents: Incident[];
+  inductions: SafetyInduction[];
 }
 
 /* =========================== Part 2 — PRC =========================== */
@@ -1595,6 +1606,145 @@ export interface CountVarianceApproval {
   approvedBy: string;
   reason: string;
   at: string;
+}
+
+/* ==================== Part 8 — HCM ==================== */
+
+export type EmployeeGroup = 'PERMANENT' | 'CONTRACTUAL' | 'RETAINER' | 'TRAINEE' | 'LABOUR';
+export type EmployeeSubgroup = 'MANAGEMENT' | 'STAFF' | 'SUPERVISOR' | 'OPERATOR' | 'SKILLED' | 'SEMI_SKILLED' | 'UNSKILLED';
+
+export interface Employee {
+  id: string;
+  code: string;
+  name: string;
+  group: EmployeeGroup;
+  subgroup: EmployeeSubgroup;
+  personnelArea: string;
+  personnelSubarea: string;
+  joinDate: string;
+  supervisorId?: string;
+  supervisorHistory: { supervisorId: string; from: string; to?: string }[];
+  certifications: { type: string; validTo: string; renewed?: boolean }[];
+  status: 'ONBOARDING' | 'PROBATION' | 'ACTIVE' | 'EXIT';
+  onboardingComplete: boolean;
+}
+
+export interface AttendancePunch {
+  id: string;
+  employeeId: string;
+  punchType: 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END';
+  serverTime: string;
+  clientTime: string;
+  lat: number;
+  lng: number;
+  accuracy: number;
+  geofenceId?: string;
+  deviceId: string;
+  deviceRegistered: boolean;
+  mockLocation: boolean;
+  developerMode: boolean;
+  faceMatchScore?: number;
+  shift: string;
+  workFront?: string;
+  gang?: string;
+  synced: boolean;
+  correctionOf?: string;
+  correctionReason?: string;
+  correctionApprovedBy?: string;
+}
+
+export interface LabourGang {
+  id: string;
+  code: string;
+  supervisorId: string;
+  trade: string;
+  siteId: string;
+  members: string[]; // employee IDs
+}
+
+/* ==================== Part 8 — PRD ==================== */
+
+export interface MixDesign {
+  id: string;
+  grade: string;
+  proportions: { material: string; qtyPerCum: number }[];
+  targetSlump: number;
+  wcRatio: number;
+  validTo: string;
+  approvedBy: string;
+}
+
+export interface BatchTicket {
+  id: string;
+  number: string;
+  mixDesignId: string;
+  grade: string;
+  volumeCum: number;
+  actualWeights: { material: string; qty: number }[];
+  moistureCorrection: { material: string; correction: number }[];
+  slumpTest: { result: number; pass: boolean } | null;
+  dispatched: boolean;
+  delivered: boolean;
+  at: string;
+}
+
+export interface ProductionOrder {
+  id: string;
+  number: string;
+  type: 'EXTERNAL' | 'INTERNAL';
+  customerId?: string;
+  projectCode?: string;
+  wbs?: string;
+  grade: string;
+  volumeCum: number;
+  pourDate: string;
+  siteId: string;
+  status: 'PLANNED' | 'BATCHED' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED';
+}
+
+/* ==================== Part 8 — EHS ==================== */
+
+export type PermitType = 'HEIGHT' | 'CONFINED_SPACE' | 'HOT_WORK' | 'EXCAVATION' | 'ELECTRICAL' | 'LIFTING' | 'ROAD_CLOSURE' | 'NIGHT_WORK';
+
+export interface PermitToWork {
+  id: string;
+  number: string;
+  type: PermitType;
+  issuerId: string;
+  receiverId: string;
+  receiverCertValid: boolean;
+  validFrom: string;
+  validTo: string;
+  preconditions: { check: string; met: boolean }[];
+  gasTest?: { result: string; safe: boolean };
+  riskAssessment: string;
+  status: 'ISSUED' | 'ACTIVE' | 'CLOSED' | 'CANCELLED';
+  closedAt?: string;
+}
+
+export type IncidentSeverity = 'NEAR_MISS' | 'FIRST_AID' | 'MEDICAL_TREATMENT' | 'LOST_TIME' | 'FATATLITY';
+
+export interface Incident {
+  id: string;
+  number: string;
+  severity: IncidentSeverity;
+  dateISO: string;
+  location: string;
+  description: string;
+  personsInvolved: string[];
+  rootCause?: string;
+  correctiveAction?: string;
+  status: 'REPORTED' | 'INVESTIGATING' | 'CLOSED';
+  daysLost: number;
+  escalated: boolean;
+}
+
+export interface SafetyInduction {
+  id: string;
+  employeeId: string;
+  dateISO: string;
+  trainer: string;
+  valid: boolean;
 }
 
 /* ==================== Part 6 — Contracts & Billing ==================== */
