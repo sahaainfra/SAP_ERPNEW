@@ -592,6 +592,23 @@ export interface ERPState {
   vendorPortalData: Record<string, VendorPortalData>; // partnerId -> data
   subconPortalData: Record<string, SubconPortalData>; // partnerId -> data
   clientPortalData: Record<string, ClientPortalData>; // projectCode -> data
+
+  /* ---- Part 10C : BID, analytics, AI, extensibility ---- */
+  tenders: Tender[];
+  eligibilityScreenings: EligibilityScreening[];
+  bidCapacityCalculations: BidCapacityCalculation[];
+  bidNoBidDecisions: BidNoBidDecision[];
+  estimations: Estimation[];
+  submissionDocuments: SubmissionDocument[];
+  submissionSignOffs: SubmissionSignOff[];
+  winLossRecords: WinLossRecord[];
+  competitorRates: CompetitorRate[];
+  semanticModel: SemanticModel;
+  reports: Report[];
+  assistantQueries: AssistantQuery[];
+  assistantResponses: AssistantResponse[];
+  customFields: CustomField[];
+  configTransports: ConfigTransport[];
 }
 
 /* =========================== Part 10A — Launchpad & Design System =========================== */
@@ -2378,4 +2395,290 @@ export interface ClientPortalData {
   drawings: { id: string; number: string; revision: string; status: 'IFC' | 'SUPERSEDED' }[];
   correspondence: { id: string; date: string; from: string; subject: string }[];
   inspectionRequests: { id: string; date: string; activity: string; status: 'PENDING' | 'APPROVED' | 'REJECTED' }[];
+}
+
+/* =========================== Part 10C — BID, Analytics, AI, Extensibility =========================== */
+
+// BID Module - Tender & Bid Management
+export type TenderStatus = 'IDENTIFIED' | 'SCREENED' | 'GO_NO_GO' | 'PREPARING' | 'SUBMITTED' | 'OPENED' | 'NEGOTIATING' | 'WON' | 'LOST' | 'WITHDRAWN' | 'CANCELLED';
+export type TenderSource = 'PUBLIC_PORTAL' | 'DEPARTMENT' | 'PRIVATE' | 'NOMINATION' | 'JV_INVITATION';
+export type ClientCategory = 'CENTRAL' | 'STATE' | 'PSU' | 'PRIVATE' | 'INTERNATIONAL';
+
+export interface Tender {
+  id: string;
+  code: string;
+  source: TenderSource;
+  referenceNumber: string;
+  clientId: string;
+  clientCategory: ClientCategory;
+  workDescription: string;
+  location: string;
+  state: string;
+  estimatedCost: number;
+  earnestMoneyAmount: number;
+  tenderDocumentFee: number;
+  completionPeriodMonths: number;
+  defectLiabilityMonths: number;
+  publishDate: string;
+  clarificationDeadline: string;
+  preBidMeetingDate?: string;
+  submissionDeadline: string;
+  openingDate: string;
+  bidValidityMonths: number;
+  contractType: string;
+  paymentTermsSummary: string;
+  priceAdjustmentApplicable: boolean;
+  advanceAvailable: boolean;
+  status: TenderStatus;
+  owner: string;
+  estimatorAssigned?: string;
+  probability?: number;
+  expectedMargin?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EligibilityCriterion {
+  id: string;
+  tenderId: string;
+  name: string;
+  required: string;
+  actual?: string;
+  source: string;
+  status: 'PASS' | 'FAIL' | 'PENDING';
+  gap?: string;
+}
+
+export interface EligibilityScreening {
+  id: string;
+  tenderId: string;
+  criteria: EligibilityCriterion[];
+  overallStatus: 'ELIGIBLE' | 'INELIGIBLE' | 'PARTIAL';
+  screenedBy: string;
+  screenedAt: string;
+}
+
+export interface BidCapacityCalculation {
+  id: string;
+  tenderId: string;
+  formula: string;
+  a: number; // max value in any one year
+  n: number; // number of years
+  b: number; // existing commitments
+  assessedCapacity: number;
+  requiredCapacity: number;
+  status: 'SUFFICIENT' | 'INSUFFICIENT';
+  calculatedAt: string;
+}
+
+export type BidDecision = 'BID' | 'BID_WITH_CONDITIONS' | 'NO_BID';
+export type NoBidReason = 'CAPACITY' | 'RISK' | 'GEOGRAPHY' | 'CLIENT' | 'COMPETITION' | 'RESOURCE' | 'STRATEGIC';
+
+export interface BidNoBidDecision {
+  id: string;
+  tenderId: string;
+  decision: BidDecision;
+  reasonCode?: NoBidReason;
+  strategicRationale: string;
+  clientRelationshipHistory: string;
+  paymentTrackRecord: string;
+  competitionAssessment: string;
+  resourceAvailability: string;
+  geographyFit: string;
+  riskAssessment: string;
+  expectedMarginRange: string;
+  winProbability: number;
+  capitalRequirement: number;
+  conditions?: string;
+  decidedBy: string;
+  decidedAt: string;
+  approvedBy: string;
+  approvedAt: string;
+}
+
+export interface EstimationItem {
+  id: string;
+  estimationId: string;
+  itemCode: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  rateSource: string;
+  materialCost: number;
+  labourCost: number;
+  equipmentCost: number;
+}
+
+export interface IndirectCostItem {
+  id: string;
+  estimationId: string;
+  category: string;
+  description: string;
+  durationMonths: number;
+  monthlyCost: number;
+  totalCost: number;
+}
+
+export interface RiskItem {
+  id: string;
+  estimationId: string;
+  description: string;
+  probability: number; // 0-1
+  impact: number; // amount
+  expectedValue: number;
+  mitigation?: string;
+}
+
+export interface MarginSensitivity {
+  scenario: string;
+  margin: number;
+  delta: number;
+}
+
+export interface Estimation {
+  id: string;
+  tenderId: string;
+  items: EstimationItem[];
+  directCost: number;
+  indirectCosts: IndirectCostItem[];
+  totalIndirectCost: number;
+  risks: RiskItem[];
+  totalRiskContingency: number;
+  totalCost: number;
+  bidAmount: number;
+  baseMargin: number;
+  marginSensitivity: MarginSensitivity[];
+  cashFlowProjection: { month: number; inflow: number; outflow: number; net: number; cumulative: number }[];
+  peakNegativeExposure: number;
+  estimatedBy: string;
+  estimatedAt: string;
+}
+
+export interface SubmissionDocument {
+  id: string;
+  estimationId: string;
+  documentType: string;
+  description: string;
+  owner: string;
+  status: 'PENDING' | 'READY' | 'SUBMITTED';
+  submittedAt?: string;
+}
+
+export interface SubmissionSignOff {
+  id: string;
+  estimationId: string;
+  pricedBoqHash: string;
+  signedOffBy: string;
+  signedOffAt: string;
+  approvedBy: string;
+  approvedAt: string;
+}
+
+export interface WinLossRecord {
+  id: string;
+  tenderId: string;
+  result: 'WON' | 'LOST';
+  reasonCode: string;
+  ourRate?: number;
+  l1Rate?: number;
+  recordedAt: string;
+  recordedBy: string;
+}
+
+export interface CompetitorRate {
+  id: string;
+  tenderId: string;
+  competitorName: string;
+  itemCode: string;
+  rate: number;
+  recordedAt: string;
+}
+
+// Analytics - Semantic Model
+export interface FactTable {
+  name: string;
+  description: string;
+  partitionedBy: string;
+  lastRefreshedAt: string;
+  rowCount: number;
+}
+
+export interface Dimension {
+  name: string;
+  description: string;
+  slowlyChanging: boolean;
+  hierarchy?: string[];
+}
+
+export interface SemanticModel {
+  facts: FactTable[];
+  dimensions: Dimension[];
+  measures: { name: string; definition: string; factTable: string }[];
+}
+
+export interface Report {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  query: string;
+  filters: Record<string, any>;
+  columns: string[];
+  createdBy: string;
+  createdAt: string;
+  lastRunAt?: string;
+  scheduled?: boolean;
+  scheduleRecipients?: string[];
+}
+
+// AI Layer
+export interface AssistantQuery {
+  id: string;
+  userId: string;
+  query: string;
+  timestamp: string;
+}
+
+export interface AssistantResponse {
+  id: string;
+  queryId: string;
+  answer: string;
+  citations: { type: string; id: string; label: string }[];
+  machineGenerated: boolean;
+  timestamp: string;
+}
+
+// Extensibility
+export interface CustomField {
+  id: string;
+  entity: string; // e.g., 'Material', 'Partner', 'Doc'
+  fieldName: string;
+  fieldType: 'TEXT' | 'NUMBER' | 'DATE' | 'BOOLEAN' | 'SELECT';
+  label: string;
+  required: boolean;
+  searchable: boolean;
+  reportable: boolean;
+  authorization?: string;
+  options?: string[]; // for SELECT type
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ConfigTransport {
+  id: string;
+  name: string;
+  sourceEnvironment: string;
+  targetEnvironment: string;
+  items: { type: string; id: string; name: string }[];
+  dependencyCheck: 'PASS' | 'FAIL';
+  dryRunReport: string;
+  status: 'DRAFT' | 'VALIDATED' | 'DEPLOYED' | 'ROLLED_BACK';
+  deployedAt?: string;
+  deployedBy?: string;
+  rolledBackAt?: string;
+  rolledBackBy?: string;
+  createdAt: string;
+  createdBy: string;
 }

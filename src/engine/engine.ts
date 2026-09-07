@@ -1376,6 +1376,22 @@ export function freshState(): ERPState {
     vendorPortalData: {},
     subconPortalData: {},
     clientPortalData: {},
+    /* Part 10C */
+    tenders: [],
+    eligibilityScreenings: [],
+    bidCapacityCalculations: [],
+    bidNoBidDecisions: [],
+    estimations: [],
+    submissionDocuments: [],
+    submissionSignOffs: [],
+    winLossRecords: [],
+    competitorRates: [],
+    semanticModel: { facts: [], dimensions: [], measures: [] },
+    reports: [],
+    assistantQueries: [],
+    assistantResponses: [],
+    customFields: [],
+    configTransports: [],
   };
 }
 
