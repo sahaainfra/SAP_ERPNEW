@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Play, CheckCircle2, XCircle, ChevronRight, Timer } from 'lucide-react';
-import { GATE9_TESTS, runGate9 } from '../engine/gate9';
+import { GATE10A_TESTS, runGate10A } from '../engine/gate10a';
 
-export function Gate9Page() {
+export function Gate10APage() {
   const [results, setResults] = useState<{ id: number; pass: boolean; evidence: string }[]>([]);
   const [running, setRunning] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -13,7 +13,7 @@ export function Gate9Page() {
     setResults([]);
     setOpenId(null);
     setTimeout(() => {
-      const res = runGate9();
+      const res = runGate10A();
       setResults(res);
       setRunning(false);
     }, 100);
@@ -21,12 +21,14 @@ export function Gate9Page() {
 
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass).length;
-  const total = GATE9_TESTS.length;
+  const total = GATE10A_TESTS.length;
   const pct = Math.round((passed / total) * 100);
 
   const groups = [
-    { name: 'Communication Suite', range: [1, 15] },
-    { name: 'Shared Tool Library', range: [16, 35] },
+    { name: 'Launchpad & Tiles', range: [1, 10] },
+    { name: 'Floorplans', range: [11, 17] },
+    { name: 'Control Tower & Search', range: [18, 20] },
+    { name: 'Design System', range: [21, 22] },
   ];
 
   return (
@@ -34,15 +36,15 @@ export function Gate9Page() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <span className="chip !bg-acc !text-white !border-acc">PART 9 OF 10</span>
-            <span className="chip">35 EXECUTABLE TESTS</span>
+            <span className="chip !bg-acc !text-white !border-acc">PART 10A OF 10</span>
+            <span className="chip">22 EXECUTABLE TESTS</span>
           </div>
           <h1 className="font-disp font-black text-[32px] leading-[1.05] tracking-tight">
-            Communication Suite & Shared Tool Library
+            Launchpad, Dashboards & Design System
           </h1>
           <p className="text-mute mt-2 max-w-2xl">
-            The communication platform bound to ERP records — conversations, messages, notifications, tasks —
-            plus 20 foundational tools consumed by every module. Build once, use everywhere.
+            The user-facing layer that ties everything together — role-based launchpad with actionable tiles,
+            five screen floorplans, global search, and a design system built on tokens.
           </p>
         </div>
         <button
@@ -58,7 +60,7 @@ export function Gate9Page() {
           ) : (
             <>
               <Play size={16} />
-              Run all 35 tests
+              Run all 22 tests
             </>
           )}
         </button>
@@ -107,7 +109,7 @@ export function Gate9Page() {
       )}
 
       {groups.map((group) => {
-        const tests = GATE9_TESTS.filter((t) => t.id >= group.range[0] && t.id <= group.range[1]);
+        const tests = GATE10A_TESTS.filter((t) => t.id >= group.range[0] && t.id <= group.range[1]);
         const groupResults = results.filter((r) => r.id >= group.range[0] && r.id <= group.range[1]);
         const groupPassed = groupResults.filter((r) => r.pass).length;
 
@@ -180,7 +182,7 @@ export function Gate9Page() {
           Tests execute pure engine services against a deep clone of the seeded state. Each test is a function that
           returns <span className="font-mono text-acc">{'{ pass, evidence }'}</span>. The evidence string is the
           live output — numbers, document references, account balances — not a static assertion. Click any test to
-          see the evidence. The gate passes only when all 35 tests return <span className="font-mono text-ok">pass: true</span>.
+          see the evidence. The gate passes only when all 22 tests return <span className="font-mono text-ok">pass: true</span>.
         </div>
       </div>
     </div>

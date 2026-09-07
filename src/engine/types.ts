@@ -577,6 +577,77 @@ export interface ERPState {
   notifications: Notification[];
   tasks: Task[];
   toolLibrary: ToolLibrary;
+
+  /* ---- Part 10A : launchpad & design system ---- */
+  kpiDefinitions: KpiDefinition[];
+  launchpadConfigs: LaunchpadConfig[];
+  tileValues: Record<string, TileValue>;
+}
+
+/* =========================== Part 10A — Launchpad & Design System =========================== */
+
+export type TileType = 'COUNT' | 'KPI' | 'MICRO_CHART' | 'COMPARISON' | 'MONITORING' | 'ACTION';
+export type RefreshPolicy = 'REALTIME' | 'ON_LOAD' | 'CACHED';
+export type ThresholdDirection = 'HIGHER_BETTER' | 'LOWER_BETTER' | 'MONITORED';
+export type RagStatus = 'RED' | 'AMBER' | 'GREEN' | 'GREY';
+
+export interface KpiDefinition {
+  code: string;
+  name: string;
+  description: string;
+  module: ModuleCode;
+  businessOwnerRole: string;
+  measureExpression: string;
+  dimensions: string[];
+  defaultFilters?: Record<string, any>;
+  timeBasis: 'PERIOD' | 'CUMULATIVE' | 'ROLLING_N' | 'AS_ON';
+  unit: string;
+  decimals: number;
+  scaling: 'ABSOLUTE' | 'THOUSAND' | 'LAKH' | 'CRORE';
+  displayFormat: string;
+  targetSource: 'BUDGET' | 'PLAN' | 'PRIOR_PERIOD' | 'FIXED' | 'NONE';
+  thresholdRules: { boundary: number; direction: ThresholdDirection; status: RagStatus }[];
+  trendBasis: 'PERIOD_ON_PERIOD' | 'CUMULATIVE' | 'ROLLING';
+  trendPeriods: number;
+  drillPath: string[]; // MANDATORY - ordered target views
+  refreshPolicy: RefreshPolicy;
+  authorizationObject: string;
+  cacheKeyDimensions?: string[];
+}
+
+export interface TileConfig {
+  id: string;
+  type: TileType;
+  kpiCode?: string; // For KPI tiles
+  title: string;
+  subtitle?: string;
+  group: string; // 'MY_WORK' | 'PROJECT' | 'PROCUREMENT' | etc.
+  refreshPolicy: RefreshPolicy;
+  cacheIntervalMinutes?: number;
+  drillTarget: string; // Screen/page to open
+  drillFilters?: Record<string, any>;
+  authorizationObject: string;
+  minValue?: number;
+  maxValue?: number;
+  icon?: string;
+  color?: string;
+}
+
+export interface TileValue {
+  tileId: string;
+  value: number | string;
+  unit?: string;
+  trend?: number; // % change
+  trendDirection?: 'UP' | 'DOWN' | 'FLAT';
+  status?: RagStatus;
+  timestamp: string; // "as at" for cached tiles
+  drillCount?: number; // Must match value for count tiles
+}
+
+export interface LaunchpadConfig {
+  role: string;
+  tiles: TileConfig[];
+  tileOrder: string[]; // User-customizable order
 }
 
 /* =========================== Part 9 — COM =========================== */

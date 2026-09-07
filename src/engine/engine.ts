@@ -1363,6 +1363,10 @@ export function freshState(): ERPState {
       translationEngine: { enabled: true, languagesSupported: 2 },
       integrationFramework: { enabled: true, connectorsActive: 0 },
     },
+    /* Part 10A */
+    kpiDefinitions: [],
+    launchpadConfigs: [],
+    tileValues: {},
   };
 }
 

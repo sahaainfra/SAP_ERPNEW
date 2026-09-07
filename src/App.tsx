@@ -1,10 +1,12 @@
 import { StoreProvider, NavProvider, useNav } from './store';
 import { Shell } from './components/Shell';
+import { Launchpad } from './pages/Launchpad';
 import { Cockpit } from './pages/Cockpit';
 import { GatePage } from './pages/GatePage';
 import { Gate6Page } from './pages/Gate6Page';
 import { Gate7Page } from './pages/Gate7Page';
 import { Gate8Page } from './pages/Gate8Page';
+import { Gate10APage } from './pages/Gate10APage';
 import { EnterpriseStructure } from './pages/EnterpriseStructure';
 import { MasterData } from './pages/MasterData';
 import { Procurement } from './pages/Procurement';
@@ -18,11 +20,13 @@ import { AuditPage } from './pages/AuditPage';
 function Router() {
   const { page } = useNav();
   switch (page) {
+    case 'launchpad': return <Launchpad />;
     case 'cockpit': return <Cockpit />;
     case 'gate': return <GatePage />;
     case 'gate6': return <Gate6Page />;
     case 'gate7': return <Gate7Page />;
     case 'gate8': return <Gate8Page />;
+    case 'gate10a': return <Gate10APage />;
     case 'structure': return <EnterpriseStructure />;
     case 'masters': return <MasterData />;
     case 'procurement': return <Procurement />;

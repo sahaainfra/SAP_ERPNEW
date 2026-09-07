@@ -18,6 +18,7 @@ import {
   addMeasurement as psAddMeasurement, logHindrance as psLogHindrance,
 } from './prjsys';
 import { backfillConversations } from './platform';
+import { seedLaunchpadData } from './launchpad';
 import { createPutaway } from './stores';
 
 /* module-level master snapshots so a demo reset is faithful */
@@ -145,6 +146,9 @@ export function buildSeedState(): ERPState {
 
   /* Record-bound conversation threads attach to every submitted document */
   backfillConversations(st);
+
+  /* Part 10A: Launchpad & Design System */
+  seedLaunchpadData(st);
 
   st.today = todayISO();
   return st;
