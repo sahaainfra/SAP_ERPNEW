@@ -1392,6 +1392,15 @@ export function freshState(): ERPState {
     assistantResponses: [],
     customFields: [],
     configTransports: [],
+    /* Part 10D */
+    roles: [],
+    approvalThresholds: [],
+    approvalMatrix: [],
+    sodConflicts: [],
+    migrationRuns: [],
+    cutoverActivities: [],
+    goNoGoChecklist: [],
+    endToEndTests: [],
   };
 }
 

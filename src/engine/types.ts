@@ -609,6 +609,16 @@ export interface ERPState {
   assistantResponses: AssistantResponse[];
   customFields: CustomField[];
   configTransports: ConfigTransport[];
+
+  /* ---- Part 10D : roles, approval, migration, cutover ---- */
+  roles: Role[];
+  approvalThresholds: ApprovalThreshold[];
+  approvalMatrix: ApprovalMatrix[];
+  sodConflicts: SoDConflict[];
+  migrationRuns: MigrationRun[];
+  cutoverActivities: CutoverActivity[];
+  goNoGoChecklist: GoNoGoChecklist[];
+  endToEndTests: EndToEndTest[];
 }
 
 /* =========================== Part 10A — Launchpad & Design System =========================== */
@@ -2648,6 +2658,109 @@ export interface AssistantResponse {
   citations: { type: string; id: string; label: string }[];
   machineGenerated: boolean;
   timestamp: string;
+}
+
+// Part 10D — Roles, Approval Matrix, Migration, Cutover
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  category: 'ADMIN' | 'MANAGEMENT' | 'FINANCE' | 'PROCUREMENT' | 'STORES' | 'PROJECT' | 'COMMERCIAL' | 'HR' | 'OPERATIONS' | 'QUALITY' | 'SAFETY' | 'PORTAL' | 'SELF_SERVICE';
+  authorizationObjects: string[];
+  restrictions?: string[];
+  portalAccess?: boolean;
+  read_only?: boolean;
+}
+
+export interface ApprovalThreshold {
+  id: string;
+  companyCode: string;
+  fiscalYear: string;
+  documentType: string;
+  level: number;
+  amountFrom: number;
+  amountTo: number;
+  approverRole: string;
+  approverName: string;
+}
+
+export interface ApprovalMatrix {
+  id: string;
+  documentType: string;
+  description: string;
+  levels: {
+    level: number;
+    role: string;
+    amountThreshold?: number;
+    conditions?: string[];
+  }[];
+}
+
+export interface SoDConflict {
+  id: string;
+  role1: string;
+  role2: string;
+  risk: string;
+  description: string;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface MigrationObject {
+  id: string;
+  sequence: number;
+  object: string;
+  source: string;
+  reconciliation: string;
+  status: 'PENDING' | 'LOADED' | 'RECONCILED' | 'SIGNED_OFF';
+  count?: number;
+  loadedAt?: string;
+  reconciledAt?: string;
+  signedOffBy?: string;
+  signedOffAt?: string;
+}
+
+export interface MigrationRun {
+  id: string;
+  pass: 1 | 2 | 3;
+  environment: 'SANDBOX' | 'PRODUCTION';
+  startedAt: string;
+  completedAt?: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  objects: MigrationObject[];
+  reconciliationReport?: string;
+  errorLog?: string;
+  signedOffBy?: string;
+  signedOffAt?: string;
+}
+
+export interface CutoverActivity {
+  id: string;
+  daysBeforeGoLive: number;
+  activity: string;
+  owner: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  completedAt?: string;
+}
+
+export interface GoNoGoChecklist {
+  id: string;
+  criterion: string;
+  status: 'NOT_MET' | 'MET' | 'WAIVED';
+  evidence?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
+
+export interface EndToEndTest {
+  id: string;
+  number: number;
+  title: string;
+  description: string;
+  steps: string[];
+  status: 'NOT_RUN' | 'RUNNING' | 'PASSED' | 'FAILED';
+  evidence?: string;
+  runAt?: string;
 }
 
 // Extensibility
