@@ -2,6 +2,7 @@ import { StoreProvider, NavProvider, useNav } from './store';
 import { Shell } from './components/Shell';
 import { Cockpit } from './pages/Cockpit';
 import { GatePage } from './pages/GatePage';
+import { Gate6Page } from './pages/Gate6Page';
 import { EnterpriseStructure } from './pages/EnterpriseStructure';
 import { MasterData } from './pages/MasterData';
 import { Procurement } from './pages/Procurement';
@@ -17,6 +18,7 @@ function Router() {
   switch (page) {
     case 'cockpit': return <Cockpit />;
     case 'gate': return <GatePage />;
+    case 'gate6': return <Gate6Page />;
     case 'structure': return <EnterpriseStructure />;
     case 'masters': return <MasterData />;
     case 'procurement': return <Procurement />;

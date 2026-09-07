@@ -105,7 +105,7 @@ export function useStore(): StoreCtx {
 /* ---------------- navigation (app-level) ---------------- */
 
 export type PageId =
-  | 'cockpit' | 'gate' | 'structure' | 'masters' | 'procurement' | 'inventory'
+  | 'cockpit' | 'gate' | 'gate6' | 'structure' | 'masters' | 'procurement' | 'inventory'
   | 'plant' | 'quality' | 'simulator' | 'config' | 'audit';
 
 interface NavCtx {
