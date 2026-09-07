@@ -7,6 +7,7 @@ import { Gate6Page } from './pages/Gate6Page';
 import { Gate7Page } from './pages/Gate7Page';
 import { Gate8Page } from './pages/Gate8Page';
 import { Gate10APage } from './pages/Gate10APage';
+import { Gate10BPage } from './pages/Gate10BPage';
 import { EnterpriseStructure } from './pages/EnterpriseStructure';
 import { MasterData } from './pages/MasterData';
 import { Procurement } from './pages/Procurement';
@@ -27,6 +28,7 @@ function Router() {
     case 'gate7': return <Gate7Page />;
     case 'gate8': return <Gate8Page />;
     case 'gate10a': return <Gate10APage />;
+    case 'gate10b': return <Gate10BPage />;
     case 'structure': return <EnterpriseStructure />;
     case 'masters': return <MasterData />;
     case 'procurement': return <Procurement />;

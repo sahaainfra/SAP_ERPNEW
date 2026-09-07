@@ -1367,6 +1367,15 @@ export function freshState(): ERPState {
     kpiDefinitions: [],
     launchpadConfigs: [],
     tileValues: {},
+    /* Part 10B */
+    mobileDevices: [],
+    syncQueues: {},
+    mediaUploads: [],
+    portalTokens: [],
+    portalSessions: [],
+    vendorPortalData: {},
+    subconPortalData: {},
+    clientPortalData: {},
   };
 }
 

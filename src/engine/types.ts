@@ -582,6 +582,16 @@ export interface ERPState {
   kpiDefinitions: KpiDefinition[];
   launchpadConfigs: LaunchpadConfig[];
   tileValues: Record<string, TileValue>;
+
+  /* ---- Part 10B : mobile, sync & portals ---- */
+  mobileDevices: MobileDevice[];
+  syncQueues: Record<string, SyncState>; // deviceId -> state
+  mediaUploads: MediaUpload[];
+  portalTokens: PortalToken[];
+  portalSessions: PortalSession[];
+  vendorPortalData: Record<string, VendorPortalData>; // partnerId -> data
+  subconPortalData: Record<string, SubconPortalData>; // partnerId -> data
+  clientPortalData: Record<string, ClientPortalData>; // projectCode -> data
 }
 
 /* =========================== Part 10A — Launchpad & Design System =========================== */
@@ -2267,4 +2277,105 @@ export interface Lesson {
   note: string;
   fedToRateLibrary: boolean;
   at: string;
+}
+
+/* =========================== Part 10B — Mobile, Sync & Portals =========================== */
+
+export type MobileRole = 'SITE_ENGINEER' | 'STOREKEEPER' | 'PROJECT_MANAGER' | 'LABOUR_SUPERVISOR' | 'PLANT_OPERATOR' | 'SAFETY_OFFICER';
+
+export interface MobileDevice {
+  id: string;
+  userId: string;
+  deviceId: string;
+  appVersion: string;
+  registeredAt: string;
+  lastSyncAt?: string;
+  encrypted: boolean;
+}
+
+export interface SyncQueueItem {
+  id: string;
+  clientUuid: string;
+  deviceId: string;
+  entity: string;
+  payload: any;
+  clientTimestamp: string;
+  dependsOn: string[];
+  status: 'QUEUED' | 'UPLOADING' | 'ACCEPTED' | 'REJECTED' | 'CONFLICT';
+  serverTimestamp?: string;
+  rejectionReason?: string;
+  conflictDetails?: { serverVersion: any; clientVersion: any };
+  retryCount: number;
+}
+
+export interface SyncState {
+  deviceId: string;
+  lastSyncAt?: string;
+  serverCursor: number;
+  queueDepth: number;
+  items: SyncQueueItem[];
+  cacheSize: number;
+  encrypted: boolean;
+}
+
+export interface MediaUpload {
+  id: string;
+  uploadId: string;
+  parentId: string;
+  parentEntity: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  chunkSize: number;
+  totalChunks: number;
+  uploadedChunks: number;
+  status: 'INIT' | 'UPLOADING' | 'COMPLETE' | 'FAILED';
+  attachmentId?: string;
+}
+
+export interface PortalToken {
+  id: string;
+  partnerId: string;
+  portalType: 'VENDOR' | 'SUBCONTRACTOR' | 'CLIENT';
+  issuedAt: string;
+  expiresAt: string;
+  scopes: string[];
+}
+
+export interface PortalSession {
+  id: string;
+  token: PortalToken;
+  partnerId: string;
+  portalType: 'VENDOR' | 'SUBCONTRACTOR' | 'CLIENT';
+  startedAt: string;
+  lastActivityAt: string;
+  ipAddress: string;
+  userAgent: string;
+}
+
+export interface VendorPortalData {
+  purchaseOrders: { id: string; number: string; value: number; status: string; deliveryDate: string }[];
+  dispatchAdvices: { id: string; poId: string; vehicleNo: string; invoiceNo: string; challanNo: string; ewbNo: string; submittedAt: string }[];
+  invoices: { id: string; number: string; poId: string; amount: number; matchStatus: 'MATCHED' | 'BLOCKED'; blockReason?: string }[];
+  payments: { id: string; invoiceId: string; amount: number; expectedDate: string; status: 'PENDING' | 'PAID' }[];
+  scorecard: { criterion: string; score: number; weight: number; details: string }[];
+}
+
+export interface SubconPortalData {
+  workOrders: { id: string; number: string; value: number; status: string }[];
+  measurements: { id: string; woId: string; qty: number; value: number; submittedAt: string }[];
+  bills: { id: string; number: string; amount: number; status: string }[];
+  recoveries: { id: string; billId: string; head: string; amount: number }[];
+  complianceDocs: { id: string; kind: string; validTo: string; status: 'VALID' | 'EXPIRING' | 'EXPIRED' }[];
+  paymentBlockReason?: string;
+}
+
+export interface ClientPortalData {
+  projectCode: string;
+  progress: { physical: number; planned: number; financial: number };
+  dprs: { id: string; date: string; summary: string; photos: string[] }[];
+  bills: { id: string; number: string; submitted: number; certified: number; paid: number; shortfall?: { reason: string; amount: number }[] }[];
+  drawings: { id: string; number: string; revision: string; status: 'IFC' | 'SUPERSEDED' }[];
+  correspondence: { id: string; date: string; from: string; subject: string }[];
+  inspectionRequests: { id: string; date: string; activity: string; status: 'PENDING' | 'APPROVED' | 'REJECTED' }[];
 }

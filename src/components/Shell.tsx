@@ -24,6 +24,7 @@ const NAV: { group: string; items: { id: PageId; label: string; icon: typeof Gau
       { id: 'gate7', label: 'Part 7 Acceptance Gate', icon: ShieldCheck },
       { id: 'gate8', label: 'Part 8 Acceptance Gate', icon: ShieldCheck },
       { id: 'gate10a', label: 'Part 10A Acceptance Gate', icon: ShieldCheck },
+      { id: 'gate10b', label: 'Part 10B Acceptance Gate', icon: ShieldCheck },
     ],
   },
   {
@@ -116,6 +117,7 @@ export function Shell({ children }: { children: ReactNode }) {
     gate7: ['Part 7 Acceptance Gate', '45 tests — finance, controlling, taxation, statutory, legal & instruments'],
     gate8: ['Part 8 Acceptance Gate', '40 tests — people, plant, production, quality & safety'],
     gate10a: ['Part 10A Acceptance Gate', '22 tests — launchpad, dashboards & design system'],
+    gate10b: ['Part 10B Acceptance Gate', '24 tests — mobile, offline sync & external portals'],
     structure: ['Enterprise Structure', 'The organisational skeleton every posting attaches to'],
     masters: ['Master Data', 'One record, many view segments — governed end to end'],
     procurement: ['Procurement', 'Requisition → order → receipt → invoice, on one document spine'],
