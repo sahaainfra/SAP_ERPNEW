@@ -20,6 +20,7 @@ const NAV: { group: string; items: { id: PageId; label: string; icon: typeof Gau
       { id: 'cockpit', label: 'Operations Cockpit', icon: Gauge },
       { id: 'gate', label: 'Part 1 Acceptance Gate', icon: ShieldAlert },
       { id: 'gate6', label: 'Part 6 Acceptance Gate', icon: ShieldCheck },
+      { id: 'gate7', label: 'Part 7 Acceptance Gate', icon: ShieldCheck },
     ],
   },
   {
@@ -108,6 +109,7 @@ export function Shell({ children }: { children: ReactNode }) {
     cockpit: ['Operations Cockpit', 'Live position across logistics, finance and control'],
     gate: ['Part 1 Acceptance Gate', '40 executable tests — the platform proves itself before Part 2'],
     gate6: ['Part 6 Acceptance Gate', '40 tests — contracts, measurement, billing, subcontract & receivables'],
+    gate7: ['Part 7 Acceptance Gate', '45 tests — finance, controlling, taxation, statutory, legal & instruments'],
     structure: ['Enterprise Structure', 'The organisational skeleton every posting attaches to'],
     masters: ['Master Data', 'One record, many view segments — governed end to end'],
     procurement: ['Procurement', 'Requisition → order → receipt → invoice, on one document spine'],
