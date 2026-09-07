@@ -348,13 +348,29 @@ export interface ChatMsg {
 
 export interface Conversation {
   id: string;
+  type: ConversationType;
   title: string;
-  refType: string;
-  refId: string;
+  icon?: string;
+  createdBy: string;
+  createdAt: string;
+  companyId: string;
+  projectCode?: string;
+  linkedObjectType?: string;
+  linkedObjectId?: string;
+  visibility: 'INTERNAL' | 'EXTERNAL_INCLUDED';
+  retentionClass: 'OPERATIONAL' | 'PROJECT' | 'CONTRACTUAL' | 'LEGAL';
+  legalHold: boolean;
+  archived: boolean;
+  participants: string[]; // userId[]
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+  sequenceCounter: number;
+  // Legacy fields for backward compatibility
+  refType?: string;
+  refId?: string;
   refNumber?: string;
-  module: string;
-  legalHold?: boolean;
-  messages: ChatMsg[];
+  module?: string;
+  messages?: ChatMsg[];
 }
 
 export interface StockRow {
@@ -555,6 +571,156 @@ export interface ERPState {
   permits: PermitToWork[];
   incidents: Incident[];
   inductions: SafetyInduction[];
+
+  /* ---- Part 9 : communication & collaboration ---- */
+  messages: Message[];
+  notifications: Notification[];
+  tasks: Task[];
+  toolLibrary: ToolLibrary;
+}
+
+/* =========================== Part 9 — COM =========================== */
+
+export type ConversationType =
+  | 'DIRECT' | 'GROUP' | 'PROJECT' | 'WORKFRONT' | 'SITE'
+  | 'DOCUMENT' | 'ROLE_BROADCAST' | 'EXTERNAL' | 'SUPPORT';
+
+export type MessageContentType =
+  | 'TEXT' | 'VOICE_NOTE' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'
+  | 'LOCATION' | 'CONTACT' | 'OBJECT_CARD' | 'TASK'
+  | 'APPROVAL_REQUEST' | 'FORM' | 'POLL' | 'SYSTEM';
+
+export type DeliveryState = 'SENT' | 'DELIVERED' | 'READ';
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  title: string;
+  icon?: string;
+  createdBy: string;
+  createdAt: string;
+  companyId: string;
+  projectCode?: string;
+  linkedObjectType?: string;
+  linkedObjectId?: string;
+  visibility: 'INTERNAL' | 'EXTERNAL_INCLUDED';
+  retentionClass: 'OPERATIONAL' | 'PROJECT' | 'CONTRACTUAL' | 'LEGAL';
+  legalHold: boolean;
+  archived: boolean;
+  participants: string[]; // userId[]
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+  sequenceCounter: number;
+}
+
+export interface Message {
+  id: string;
+  clientMessageId: string; // idempotency key
+  conversationId: string;
+  senderId: string;
+  senderType: 'USER' | 'SYSTEM' | 'BOT' | 'EXTERNAL';
+  sequenceNumber: number;
+  serverTimestamp: string;
+  clientTimestamp: string;
+  contentType: MessageContentType;
+  body: string;
+  attachments?: Attachment[];
+  replyToMessageId?: string;
+  mentions?: string[];
+  linkedObjectType?: string;
+  linkedObjectId?: string;
+  editedAt?: string;
+  editHistory?: { at: string; body: string }[];
+  deletedAt?: string;
+  deletionReason?: string;
+  reactions?: { emoji: string; userId: string }[];
+  pinned: boolean;
+  starredBy?: string[];
+  deliveryStates?: Record<string, DeliveryState>;
+}
+
+export interface Attachment {
+  id: string;
+  type: 'IMAGE' | 'VIDEO' | 'DOCUMENT' | 'VOICE';
+  url: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  gps?: { lat: number; lng: number };
+  timestamp?: string;
+  annotations?: Annotation[];
+}
+
+export interface Annotation {
+  type: 'ARROW' | 'CIRCLE' | 'RECTANGLE' | 'FREEHAND' | 'TEXT' | 'MEASUREMENT';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  text?: string;
+  points?: { x: number; y: number }[];
+}
+
+export type NotificationChannel = 'IN_APP' | 'PUSH' | 'EMAIL' | 'SMS' | 'WHATSAPP' | 'CHAT';
+export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+
+export interface Notification {
+  id: string;
+  eventKey: string;
+  userId: string;
+  channel: NotificationChannel;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  linkedObjectType?: string;
+  linkedObjectId?: string;
+  sentAt: string;
+  readAt?: string;
+  actedAt?: string;
+  aggregated?: boolean;
+  aggregationCount?: number;
+}
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  assigneeId: string;
+  creatorId: string;
+  dueDate?: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  checklist?: { text: string; done: boolean }[];
+  linkedObjectType?: string;
+  linkedObjectId?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface ToolLibrary {
+  pdfEngine: { enabled: boolean; templateCount: number };
+  importEngine: { enabled: boolean; lastImportAt?: string };
+  barcodeEngine: { enabled: boolean; scansToday: number };
+  ocrEngine: { enabled: boolean; extractionsToday: number };
+  formulaEngine: { enabled: boolean; evaluationsToday: number };
+  uomEngine: { enabled: boolean; conversionsToday: number };
+  geofenceEngine: { enabled: boolean; checksToday: number };
+  photoEngine: { enabled: boolean; uploadsToday: number };
+  schedulingEngine: { enabled: boolean; networksComputed: number };
+  searchEngine: { enabled: boolean; indexedDocuments: number };
+  bankFileEngine: { enabled: boolean; filesGenerated: number };
+  notificationEngine: { enabled: boolean; notificationsSent: number };
+  reportBuilder: { enabled: boolean; reportsRun: number };
+  dashboardEngine: { enabled: boolean; kpisDefined: number };
+  workflowBuilder: { enabled: boolean; strategiesConfigured: number };
+  duplicateEngine: { enabled: boolean; duplicatesFlagged: number };
+  auditViewer: { enabled: boolean; auditEntries: number };
+  backupEngine: { enabled: boolean; lastBackupAt?: string };
+  translationEngine: { enabled: boolean; languagesSupported: number };
+  integrationFramework: { enabled: boolean; connectorsActive: number };
 }
 
 /* =========================== Part 2 — PRC =========================== */

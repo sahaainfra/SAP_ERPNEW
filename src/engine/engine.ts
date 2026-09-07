@@ -1337,6 +1337,32 @@ export function freshState(): ERPState {
     employees: [], attendancePunches: [], labourGangs: [],
     mixDesigns: [], batchTickets: [], productionOrders: [],
     permits: [], incidents: [], inductions: [],
+    /* Part 9 */
+    messages: [],
+    notifications: [],
+    tasks: [],
+    toolLibrary: {
+      pdfEngine: { enabled: true, templateCount: 0 },
+      importEngine: { enabled: true },
+      barcodeEngine: { enabled: true, scansToday: 0 },
+      ocrEngine: { enabled: true, extractionsToday: 0 },
+      formulaEngine: { enabled: true, evaluationsToday: 0 },
+      uomEngine: { enabled: true, conversionsToday: 0 },
+      geofenceEngine: { enabled: true, checksToday: 0 },
+      photoEngine: { enabled: true, uploadsToday: 0 },
+      schedulingEngine: { enabled: true, networksComputed: 0 },
+      searchEngine: { enabled: true, indexedDocuments: 0 },
+      bankFileEngine: { enabled: true, filesGenerated: 0 },
+      notificationEngine: { enabled: true, notificationsSent: 0 },
+      reportBuilder: { enabled: true, reportsRun: 0 },
+      dashboardEngine: { enabled: true, kpisDefined: 0 },
+      workflowBuilder: { enabled: true, strategiesConfigured: 0 },
+      duplicateEngine: { enabled: true, duplicatesFlagged: 0 },
+      auditViewer: { enabled: true, auditEntries: 0 },
+      backupEngine: { enabled: true },
+      translationEngine: { enabled: true, languagesSupported: 2 },
+      integrationFramework: { enabled: true, connectorsActive: 0 },
+    },
   };
 }
 

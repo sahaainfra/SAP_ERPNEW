@@ -470,7 +470,7 @@ export const GATE_TESTS: GateTest[] = [
       const r = escalateOverdue(st, 'USR-ADM');
       const d = docById(r.s, poId)!;
       const conv = r.s.conversations.find((c) => c.id === d.conversationId);
-      const notified = conv?.messages.some((m) => m.system && m.text.includes('SLA breach'));
+      const notified = conv?.messages?.some((m) => m.system && m.text.includes('SLA breach'));
       return R(36, d.release!.steps[0].escalated === true && !!notified, `Step L1 (48h SLA, due ${d.release!.steps[0].slaDueAt}) → escalated=${d.release!.steps[0].escalated}; notification posted into the document’s conversation thread: “SLA breach — step L1…” (${notified ? 'delivered' : 'missing'}).`, t0);
     },
   },

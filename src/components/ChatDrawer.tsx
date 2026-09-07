@@ -12,14 +12,18 @@ export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const listEndRef = useRef<HTMLDivElement>(null);
 
   const convs = useMemo(
-    () => [...state.conversations].sort((a, b) => (b.messages[b.messages.length - 1]?.at ?? '').localeCompare(a.messages[a.messages.length - 1]?.at ?? '')),
+    () => [...state.conversations].sort((a, b) => {
+      const aLast = a.messages?.[a.messages.length - 1]?.at ?? '';
+      const bLast = b.messages?.[b.messages.length - 1]?.at ?? '';
+      return bLast.localeCompare(aLast);
+    }),
     [state.conversations],
   );
   const active = convs.find((c) => c.id === sel) ?? convs[0];
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [active?.messages.length, open, sel]);
+  }, [active?.messages?.length, open, sel]);
 
   const send = () => {
     if (!active || !draft.trim()) return;
@@ -61,7 +65,7 @@ export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                       {c.legalHold && <Lock size={9} className="text-warn" />}
                     </div>
                     <div className="font-mono text-[10px] font-semibold mt-1 truncate">{c.refNumber ?? c.refType}</div>
-                    <div className="text-[9.5px] text-mute truncate">{c.messages.length} msgs</div>
+                    <div className="text-[9.5px] text-mute truncate">{c.messages?.length ?? 0} msgs</div>
                   </button>
                 ))}
                 {convs.length === 0 && <div className="p-3 text-[10.5px] text-mute">Threads open automatically when documents are submitted.</div>}
@@ -83,7 +87,7 @@ export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5">
-                  {active?.messages.map((m) => {
+                  {active?.messages?.map((m) => {
                     const mine = m.user === state.userId;
                     const u = m.system ? null : userById(m.user);
                     return m.system ? (

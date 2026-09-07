@@ -23,15 +23,32 @@ import { FIELD_STATUS_GROUPS, ROLES, SOD_RULES } from './config';
 export function ensureConversation(s: ERPState, doc: Doc): string {
   if (doc.conversationId && s.conversations.some((c) => c.id === doc.conversationId)) return doc.conversationId;
   const id = `CV-${doc.id.slice(0, 8)}`;
+  const now = nowStamp();
   s.conversations.unshift({
     id,
+    type: 'DOCUMENT',
     title: `${doc.type} ${doc.number ?? '(draft)'}`,
+    createdBy: doc.createdBy,
+    createdAt: now,
+    companyId: doc.companyId,
+    projectCode: doc.items[0]?.wbs?.split('-').slice(0, 2).join('-'),
+    linkedObjectType: doc.type,
+    linkedObjectId: doc.id,
+    visibility: 'INTERNAL',
+    retentionClass: 'PROJECT',
+    legalHold: false,
+    archived: false,
+    participants: [doc.createdBy],
+    lastMessageAt: now,
+    lastMessagePreview: 'Thread opened automatically',
+    sequenceCounter: 1,
+    // Legacy fields for backward compatibility
     refType: doc.type,
     refId: doc.id,
     refNumber: doc.number ?? undefined,
     module: doc.module,
     messages: [{
-      id: uid(), user: 'SYSTEM', at: nowStamp(), system: true,
+      id: uid(), user: 'SYSTEM', at: now, system: true,
       text: `Thread opened automatically by the document type (${doc.type} · conversation_auto_create). Discussion stays bound to this record — never in a chat app outside the system.`,
     }],
   });
@@ -42,7 +59,11 @@ export function ensureConversation(s: ERPState, doc: Doc): string {
 export function postToConversation(s: ERPState, convId: string, user: string, text: string, system = false): void {
   const c = s.conversations.find((x) => x.id === convId);
   if (!c) return;
+  if (!c.messages) c.messages = [];
   c.messages.push({ id: uid(), user, at: nowStamp(), text, system });
+  c.lastMessageAt = nowStamp();
+  c.lastMessagePreview = text.slice(0, 50);
+  c.sequenceCounter++;
 }
 
 export function sendChat(sIn: ERPState, convId: string, text: string, userId: string): Res {
@@ -62,10 +83,10 @@ export function deleteChatMsg(sIn: ERPState, convId: string, msgId: string, user
     pushAudit(s, userId, 'SECURITY', 'CHAT_DELETE', c.id, { reason: 'Deletion refused — thread is under legal hold (reason mandatory, deletion impossible)' });
     return { s, ok: false, msg: 'Thread is under legal hold — messages cannot be deleted. The refusal is written to the audit log.', tone: 'bad' };
   }
-  const m = c.messages.find((x) => x.id === msgId);
+  const m = c.messages?.find((x) => x.id === msgId);
   if (!m) return { s, ok: false, msg: 'Message not found', tone: 'bad' };
   if (m.system) return { s, ok: false, msg: 'System events are immutable.', tone: 'warn' };
-  c.messages = c.messages.filter((x) => x.id !== msgId);
+  c.messages = c.messages?.filter((x) => x.id !== msgId) ?? [];
   pushAudit(s, userId, 'CHANGE', 'CHAT_DELETE', c.id, { reason: 'Message deleted — recorded with user, time and thread (reason-mandatory event)' });
   return { s, ok: true, msg: 'Message deleted — the deletion itself is on the audit trail.', tone: 'info' };
 }
