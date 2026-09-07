@@ -517,6 +517,33 @@ export interface ERPState {
   rfis: Rfi[];
   costForecasts: CostForecast[];
   raPostings: RaPosting[];
+
+  /* ---- Part 5 : stores & inventory ---- */
+  bins: StorageBin[];
+  putaways: PutAway[];
+  rejectionNotes: RejectionNote[];
+  valuationAdjustments: ValuationAdjustment[];
+  stockRecRuns: StockRecRun[];
+  matRecons: MatReconDoc[];
+  tareFlags: TareFlag[];
+  varianceApprovals: CountVarianceApproval[];
+
+  /* ---- Part 6 : contracts · measurement · billing · subcontract ---- */
+  contractClauses: ContractClause[];
+  notices: ContractNotice[];
+  variations: VariationOrder[];
+  extraItems: ExtraItem[];
+  rateBuilds: RateBuild[];
+  rateBooks: RateBook[];
+  drawings: Drawing[];
+  mbEntries: MbEntry[];
+  clientBills: ClientBill[];
+  subOrdersP6: SubOrderP6[];
+  subBills: SubBill[];
+  claimCases: ClaimCase[];
+  receivables: ReceivableItem[];
+  retentionSchedule: RetentionRelease[];
+  lessonsLearned: Lesson[];
 }
 
 /* =========================== Part 2 — PRC =========================== */
@@ -1567,5 +1594,290 @@ export interface CountVarianceApproval {
   band: 'STOREKEEPER' | 'STORE_MANAGER' | 'CONTROLLER';
   approvedBy: string;
   reason: string;
+  at: string;
+}
+
+/* ==================== Part 6 — Contracts & Billing ==================== */
+
+export interface ContractClause {
+  id: string;
+  contractId: string;
+  clauseNo: string;
+  subject: string;
+  obligation: string;
+  owner: string;            // role or user
+  deadline: string;
+  alertDaysBefore: number;
+  recurring?: 'MONTHLY' | 'QUARTERLY';
+  status: 'OPEN' | 'DONE' | 'BREACHED';
+}
+
+export interface ContractNotice {
+  id: string;
+  number: string;
+  contractId: string;
+  direction: 'ISSUED' | 'RECEIVED';
+  clause: string;
+  date: string;
+  deadline: string;
+  subject: string;
+  acknowledged: boolean;
+}
+
+export interface VariationOrder {
+  id: string;
+  number: string;
+  contractId: string;
+  boqItemId?: string;
+  clauseRef: string;
+  justification: string;
+  rateBasis: 'BOQ_RATE' | 'DERIVED' | 'NEGOTIATED' | 'ANALYSIS';
+  costImpact: number;
+  timeImpactDays: number;
+  submittedDate: string;
+  status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
+  approvedValue?: number;
+  feedsEot: boolean;
+}
+
+export interface ExtraItem {
+  id: string;
+  number: string;
+  contractId: string;
+  desc: string;
+  unit: string;
+  qty: number;
+  provisionalRate: number;
+  rateBuildId?: string;
+  status: 'UNAPPROVED' | 'APPROVED';
+  approvedRate?: number;
+}
+
+export interface RateBuildComponent {
+  kind: 'MATERIAL' | 'LABOUR' | 'PLANT' | 'LEAD_LIFT' | 'ROYALTY' | 'SUNDRIES' | 'SUB_ANALYSIS';
+  desc: string;
+  qty: number;
+  rate: number;
+  wastagePct?: number;
+  outputNorm?: number;      // labour output norm
+  subId?: string;           // nested sub-analysis
+  leadKm?: number;          // lead & lift
+  liftM?: number;
+}
+
+export interface RateBuild {
+  id: string;
+  code: string;
+  desc: string;
+  unit: string;
+  components: RateBuildComponent[];
+  sundriesPct: number;
+  siteOhPct: number;
+  hoOhPct: number;
+  profitPct: number;
+  version: number;
+  effective: string;
+  preparer: string;
+  approver?: string;
+  locked?: boolean;
+  lockedRef?: string;       // tender / approved extra item reference
+}
+
+export interface RateBookItem {
+  itemCode: string;
+  desc: string;
+  unit: string;
+  rate: number;
+  mat: number;
+  lab: number;
+  mach: number;
+}
+
+export interface RateBook {
+  id: string;
+  schedule: string;
+  year: number;
+  chapter: string;
+  items: RateBookItem[];
+}
+
+export interface Drawing {
+  id: string;
+  no: string;
+  rev: string;              // R0, R1, ...
+  status: 'IFC' | 'SUPERSEDED' | 'DRAFT' | 'FOR_APPROVAL';
+  supersededBy?: string;
+}
+
+export interface MbLine {
+  desc: string;
+  nos: number;
+  length: number;
+  breadth: number;
+  depth: number;
+  formula: 'RECT' | 'TRAPEZOID' | 'PRISMOIDAL' | 'XSECTION' | 'CIRCULAR' | 'TRIANGLE' | 'CUSTOM';
+  qty: number;
+  deduction: boolean;
+  remarks?: string;
+}
+
+export interface MbEntry {
+  id: string;
+  number: string;
+  contractId: string;
+  boqItemId: string;
+  wbs: string;
+  period: string;
+  drawingId: string;
+  location: string;
+  lines: MbLine[];
+  measuredQty: number;      // computed = sum of lines (deductions negative)
+  cumulative: number;       // computed: measured to date incl. this entry
+  previouslyCertified: number;
+  currentQty: number;       // computed: cumulative - previously certified
+  amount: number;
+  joint: boolean;
+  measuredBy: string;
+  status: 'DRAFT' | 'CERTIFIED';
+  certifiedIn?: string;     // bill id
+  isDeviation: boolean;     // MB-DEV correction entry
+  correctsId?: string;
+  qualityHold: boolean;     // failed test / uncleared hold point
+  offlineSynced?: boolean;
+  at: string;
+}
+
+export interface BillRecovery { head: string; amount: number; note?: string; }
+
+export interface ClientBill {
+  id: string;
+  number: string;
+  contractId: string;
+  period: string;
+  kind: 'RA-INT' | 'RA-FIN';
+  /* step 1 */
+  workExecuted: number;
+  variations: number;
+  approvedExtras: number;
+  provisionalExtras: number;   // flagged billing-at-risk
+  partRate: number;
+  escalation: number;
+  escalationLines: { component: string; weight: number; baseIdx: number; curIdx: number; amount: number }[];
+  escalationRestatement: number;
+  securedAdvance: number;
+  grossToDate: number;
+  grossPrev: number;
+  grossThisBill: number;
+  /* step 4 */
+  recoveries: BillRecovery[];
+  /* step 5 */
+  statutory: BillRecovery[];
+  /* step 6 */
+  taxableValue: number;
+  gstRate: number;
+  gst: number;
+  netPayable: number;
+  /* lifecycle */
+  status: 'DRAFT' | 'QS_CERTIFIED' | 'PM_APPROVED' | 'COMMERCIAL' | 'SUBMITTED' | 'UNDER_CERTIFICATION' | 'CERTIFIED' | 'INVOICED' | 'PAID' | 'CLOSED' | 'RETURNED' | 'DISPUTED';
+  submittedAmt: number;
+  certifiedAmt: number;
+  paidAmt: number;
+  shortfalls: { reason: string; amount: number; date: string }[];
+  revenueJournal?: string;
+  invoiceNo?: string;
+  at: string;
+}
+
+export interface SubBoqLine {
+  clientBoqId: string;
+  desc: string;
+  qty: number;
+  clientRate: number;
+  subRate: number;
+  ownAdditions: number;
+}
+
+export interface SubOrderP6 {
+  id: string;
+  number: string;
+  subconId: string;
+  projectCode: string;
+  wbs: string;
+  lines: SubBoqLine[];
+  ceilingValue: number;
+  retentionPct: number;
+  advancePct: number;
+  penalRatePct: number;       // excess consumption penal rate
+  labourLicenceValidTo: string;
+  pfFiled: boolean;
+  esiFiled: boolean;
+  insuranceValidTo: string;
+  cwRegistered: boolean;
+  minWageOk: boolean;
+  recoverableRate: Record<string, number>;  // materialCode -> recovery rate (market+handling, NOT cost)
+  status: 'ACTIVE' | 'CLOSED';
+}
+
+export interface SubBill {
+  id: string;
+  number: string;
+  subOrderId: string;
+  period: string;
+  grossValue: number;
+  recoveries: BillRecovery[];
+  tds: number;
+  netPayable: number;
+  status: 'DRAFT' | 'SUBMITTED' | 'RELEASED' | 'PAID' | 'BLOCKED';
+  blockReason?: string;
+  overrideBy?: string;
+  overrideReason?: string;
+  at: string;
+}
+
+export interface ClaimCase {
+  id: string;
+  number: string;
+  contractId: string;
+  event: string;
+  clause: string;
+  eventDate: string;
+  noticeDate: string;
+  noticeRef: string;
+  noticeTimely: boolean;
+  heads: { head: string; amount: number; basis: string }[];
+  timeImpactDays: number;
+  status: 'NOTICE' | 'PARTICULARS' | 'SUBMITTED' | 'NEGOTIATED' | 'AWARDED';
+  bundle?: { kind: string; ref: string; date: string }[];
+  awarded?: number;
+}
+
+export interface ReceivableItem {
+  id: string;
+  clientId: string;
+  billId: string;
+  billNo: string;
+  nature: 'CERTIFIED_UNPAID' | 'RETENTION' | 'SECURITY_DEPOSIT' | 'DISPUTED' | 'SUBMITTED_UNCERTIFIED' | 'ADVANCE_PENDING';
+  amount: number;
+  dueDate: string;
+  collected: number;
+}
+
+export interface RetentionRelease {
+  id: string;
+  contractId: string;
+  stage: 'PRACTICAL_COMPLETION' | 'DEFECT_LIABILITY_EXPIRY';
+  pct: number;
+  date: string;
+  status: 'PENDING' | 'RELEASED';
+}
+
+export interface Lesson {
+  id: string;
+  projectCode: string;
+  kind: 'PRODUCTIVITY' | 'CONSUMPTION' | 'RATE' | 'CLAIM' | 'CLIENT';
+  actual: string;
+  norm: string;
+  note: string;
+  fedToRateLibrary: boolean;
   at: string;
 }

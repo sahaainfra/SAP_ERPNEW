@@ -2,7 +2,7 @@ import type { ERPState } from './types';
 import { MATERIALS, PARTNERS } from './config';
 import {
   freshState, createPR, approveDoc, createPOFromPR, postGR, postInvoice, postMovement,
-  daysAgoISO, todayISO,
+  daysAgoISO, todayISO, uid,
 } from './engine';
 import { postEquipmentLog, postInternalHire } from './eam';
 import { createInspectionLot, recordTest } from './qms';
@@ -18,6 +18,7 @@ import {
   addMeasurement as psAddMeasurement, logHindrance as psLogHindrance,
 } from './prjsys';
 import { backfillConversations } from './platform';
+import { createPutaway } from './stores';
 
 /* module-level master snapshots so a demo reset is faithful */
 const MATERIALS_ORIG = JSON.parse(JSON.stringify(MATERIALS)) as typeof MATERIALS;
@@ -140,6 +141,7 @@ export function buildSeedState(): ERPState {
   seedLogistics(st);
   seedCommercial(st);
   seedProjectSystem(st);
+  seedStores(st);
 
   /* Record-bound conversation threads attach to every submitted document */
   backfillConversations(st);
@@ -377,4 +379,27 @@ function seedProjectSystem(st: ERPState): void {
   Object.assign(st, r.s);
   r = recordForecast(st, { projectCode: 'PRJ-NH47', wbs: 'PRJ-NH47-S', period: '2025-12', forecastEac: 3_09_00_000, basis: 'LATEST_PURCHASE', basisNote: 'Cement price revised; consumption 4% over norm' }, 'USR-COM');
   Object.assign(st, r.s);
+}
+
+/* ── Part 5 opening: storage bins, a client-issued (split valuation) receipt, put-away ── */
+function seedStores(st: ERPState): void {
+  let r: { s: ERPState; ok: boolean; docId?: string };
+  /* storage bins at the project site store */
+  st.bins.push(
+    { id: uid(), siteId: 'ST-NH47', locId: 'UNR', code: 'A-01-1', capacity: 2000, uom: 'BAG', materialRestriction: ['MAT-C53'], currentQty: 0, currentMaterial: 'MAT-C53' },
+    { id: uid(), siteId: 'ST-NH47', locId: 'UNR', code: 'A-02-3', capacity: 500, uom: 'MT', materialRestriction: ['MAT-STL16'], currentQty: 0, currentMaterial: 'MAT-STL16' },
+    { id: uid(), siteId: 'ST-NH47', locId: 'UNR', code: 'B-01-2', capacity: 400, uom: 'M3', materialRestriction: [], currentQty: 0 },
+  );
+
+  /* client-issued steel received at the contractual issue rate — split valuation, never blended */
+  st.today = daysAgoISO(6);
+  r = postMovement(st, { movementCode: '130', materialCode: 'MAT-STL16', qty: 40, siteId: 'ST-NH47', locId: 'UNR', rate: 71500, partnerId: 'BP-NHAI' }, 'USR-STR');
+  Object.assign(st, r.s);
+
+  /* a receipt awaiting put-away */
+  st.today = daysAgoISO(1);
+  r = createPutaway(st, { siteId: 'ST-NH47', materialCode: 'MAT-C53', qty: 60, gateNo: 'GE-0007' }, 'USR-STR');
+  Object.assign(st, r.s);
+
+  st.today = todayISO();
 }

@@ -1325,6 +1325,14 @@ export function freshState(): ERPState {
     rfis: [],
     costForecasts: [],
     raPostings: [],
+    /* Part 5 */
+    bins: [], putaways: [], rejectionNotes: [], valuationAdjustments: [],
+    stockRecRuns: [], matRecons: [], tareFlags: [], varianceApprovals: [],
+    /* Part 6 */
+    contractClauses: [], notices: [], variations: [], extraItems: [],
+    rateBuilds: [], rateBooks: [], drawings: [], mbEntries: [], clientBills: [],
+    subOrdersP6: [], subBills: [], claimCases: [], receivables: [],
+    retentionSchedule: [], lessonsLearned: [],
   };
 }
 
